@@ -15,7 +15,7 @@ struct InputForgeCommands: Commands {
             Button("Interrogation Mode") {
                 NotificationCenter.default.post(name: .enterInterrogation, object: nil)
             }
-            .keyboardShortcut("q", modifiers: [.command, .shift])
+            .keyboardShortcut("i", modifiers: [.command, .shift])
 
             Button("Export TaskPaper") {
                 NotificationCenter.default.post(name: .exportTaskPaper, object: nil)
