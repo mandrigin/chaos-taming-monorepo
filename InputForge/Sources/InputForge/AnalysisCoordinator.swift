@@ -103,9 +103,17 @@ final class AnalysisCoordinator {
     // MARK: - Backend Resolution
 
     private static func resolveService(for context: ProjectContext) -> any AnalysisService {
-        let aiService: any AIService = switch AIBackend.current {
+        let provider = AIBackend.selectedProvider(for: context)
+        let modelID = ModelSelection.selectedModelID(provider: provider, context: context)
+        let aiService: any AIService = switch provider {
         case .gemini:
-            GeminiAIService(context: context, model: GeminiModelSelection.selectedModelID(for: context))
+            GeminiAIService(context: context, model: modelID)
+        case .anthropic:
+            AnthropicAIService(context: context, model: modelID)
+        case .claudeCode:
+            ClaudeCodeAIService(model: modelID)
+        case .openai:
+            OpenAIAIService(context: context, model: modelID)
         case .foundationModels:
             FoundationModelsAIService()
         }

@@ -1,32 +1,80 @@
 import Foundation
 import Security
 
-/// Manages Gemini API key storage and retrieval from macOS Keychain.
+/// Manages AI provider API key storage and retrieval from macOS Keychain.
 ///
-/// Uses separate keychain items for Work and Personal contexts:
-/// - `InputForge-Work-GeminiKey`
-/// - `InputForge-Personal-GeminiKey`
+/// Uses per-provider, per-context keychain items:
+/// - `InputForge-gemini-work-apikey`
+/// - `InputForge-anthropic-personal-apikey`
+/// - etc.
 struct KeychainService: Sendable {
     private static let servicePrefix = "InputForge"
 
-    /// Returns the keychain service name for a given project context.
-    static func serviceName(for context: ProjectContext) -> String {
+    /// Returns the keychain service name for a given provider and context.
+    static func serviceName(provider: AIBackend, context: ProjectContext) -> String {
+        "\(servicePrefix)-\(provider.rawValue)-\(context.rawValue)-apikey"
+    }
+
+    // MARK: - Legacy Migration
+
+    /// Old service names used when only Gemini was supported.
+    private static func legacyServiceName(for context: ProjectContext) -> String {
         switch context {
         case .work: return "\(servicePrefix)-Work-GeminiKey"
         case .personal: return "\(servicePrefix)-Personal-GeminiKey"
         }
     }
 
-    /// Retrieve the Gemini API key for the given context.
-    ///
-    /// - Parameter context: Work or Personal context.
-    /// - Returns: The API key string, or nil if not stored.
-    static func retrieveAPIKey(for context: ProjectContext) -> String? {
-        let service = serviceName(for: context)
+    /// Migrates old Gemini-specific keychain entries to the new per-provider format.
+    /// Called lazily on first retrieval for Gemini.
+    private static func migrateGeminiKeyIfNeeded(context: ProjectContext) {
+        let newService = serviceName(provider: .gemini, context: context)
+
+        // Check if new key already exists
+        let checkQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: newService,
+            kSecAttrAccount as String: "APIKey",
+            kSecReturnData as String: false,
+        ]
+        if SecItemCopyMatching(checkQuery as CFDictionary, nil) == errSecSuccess {
+            return // Already migrated
+        }
+
+        // Try to read from legacy location
+        let legacyService = legacyServiceName(for: context)
+        let legacyQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: legacyService,
+            kSecAttrAccount as String: "GeminiAPIKey",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(legacyQuery as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data,
+              let key = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        // Store in new location
+        storeAPIKey(key, provider: .gemini, context: context)
+    }
+
+    // MARK: - Primary API (per-provider, per-context)
+
+    /// Retrieve the API key for the given provider and context.
+    static func retrieveAPIKey(provider: AIBackend, context: ProjectContext) -> String? {
+        if provider == .gemini {
+            migrateGeminiKeyIfNeeded(context: context)
+        }
+
+        let service = serviceName(provider: provider, context: context)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: "GeminiAPIKey",
+            kSecAttrAccount as String: "APIKey",
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
@@ -40,22 +88,17 @@ struct KeychainService: Sendable {
         return String(data: data, encoding: .utf8)
     }
 
-    /// Store or update the Gemini API key for the given context.
-    ///
-    /// - Parameters:
-    ///   - key: The API key string.
-    ///   - context: Work or Personal context.
-    /// - Returns: True if the operation succeeded.
+    /// Store or update the API key for the given provider and context.
     @discardableResult
-    static func storeAPIKey(_ key: String, for context: ProjectContext) -> Bool {
-        let service = serviceName(for: context)
+    static func storeAPIKey(_ key: String, provider: AIBackend, context: ProjectContext) -> Bool {
+        let service = serviceName(provider: provider, context: context)
         guard let data = key.data(using: .utf8) else { return false }
 
         // Delete existing entry first
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: "GeminiAPIKey",
+            kSecAttrAccount as String: "APIKey",
         ]
         SecItemDelete(deleteQuery as CFDictionary)
 
@@ -63,7 +106,7 @@ struct KeychainService: Sendable {
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: "GeminiAPIKey",
+            kSecAttrAccount as String: "APIKey",
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
         ]
@@ -72,30 +115,31 @@ struct KeychainService: Sendable {
         return status == errSecSuccess
     }
 
-    /// Delete the Gemini API key for the given context.
-    ///
-    /// - Parameter context: Work or Personal context.
-    /// - Returns: True if the key was deleted (or didn't exist).
+    /// Delete the API key for the given provider and context.
     @discardableResult
-    static func deleteAPIKey(for context: ProjectContext) -> Bool {
-        let service = serviceName(for: context)
+    static func deleteAPIKey(provider: AIBackend, context: ProjectContext) -> Bool {
+        let service = serviceName(provider: provider, context: context)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: "GeminiAPIKey",
+            kSecAttrAccount as String: "APIKey",
         ]
 
         let status = SecItemDelete(query as CFDictionary)
         return status == errSecSuccess || status == errSecItemNotFound
     }
 
-    /// Check if an API key exists for the given context without retrieving it.
-    static func hasAPIKey(for context: ProjectContext) -> Bool {
-        let service = serviceName(for: context)
+    /// Check if an API key exists for the given provider and context.
+    static func hasAPIKey(provider: AIBackend, context: ProjectContext) -> Bool {
+        if provider == .gemini {
+            migrateGeminiKeyIfNeeded(context: context)
+        }
+
+        let service = serviceName(provider: provider, context: context)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: "GeminiAPIKey",
+            kSecAttrAccount as String: "APIKey",
             kSecReturnData as String: false,
         ]
 
@@ -105,18 +149,18 @@ struct KeychainService: Sendable {
 
     // MARK: - Convenience aliases (used by SettingsView)
 
-    static func save(apiKey: String, for context: ProjectContext) throws {
-        guard storeAPIKey(apiKey, for: context) else {
+    static func save(apiKey: String, provider: AIBackend, context: ProjectContext) throws {
+        guard storeAPIKey(apiKey, provider: provider, context: context) else {
             throw KeychainError.saveFailed
         }
     }
 
-    static func retrieve(for context: ProjectContext) -> String? {
-        retrieveAPIKey(for: context)
+    static func retrieve(provider: AIBackend, context: ProjectContext) -> String? {
+        retrieveAPIKey(provider: provider, context: context)
     }
 
-    static func delete(for context: ProjectContext) {
-        deleteAPIKey(for: context)
+    static func delete(provider: AIBackend, context: ProjectContext) {
+        deleteAPIKey(provider: provider, context: context)
     }
 
     enum KeychainError: LocalizedError {

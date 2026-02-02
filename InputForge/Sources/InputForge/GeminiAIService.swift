@@ -33,7 +33,7 @@ final class GeminiAIService: AIService, @unchecked Sendable {
 
     var isAvailable: Bool {
         get async {
-            KeychainService.hasAPIKey(for: context)
+            KeychainService.hasAPIKey(provider: .gemini, context: context)
         }
     }
 
@@ -76,7 +76,7 @@ final class GeminiAIService: AIService, @unchecked Sendable {
     // MARK: - Private
 
     private func sendRequest(messages: [AIMessage]) async throws -> String {
-        guard let apiKey = KeychainService.retrieveAPIKey(for: context) else {
+        guard let apiKey = KeychainService.retrieveAPIKey(provider: .gemini, context: context) else {
             throw AIServiceError.noAPIKey
         }
 

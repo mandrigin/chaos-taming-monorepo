@@ -254,12 +254,10 @@ struct ProjectWorkspaceView: View {
 
                         ForgeBadge(text: document.projectData.persona.name.uppercased(), style: .muted)
 
-                        if AIBackend.current == .gemini {
-                            GeminiModelPickerMenu(
-                                context: document.projectData.context,
-                                modelStore: modelStore
-                            )
-                        }
+                        ProviderModelPickerMenu(
+                            context: document.projectData.context,
+                            modelStore: modelStore
+                        )
 
                         if document.projectData.currentAnalysis != nil {
                             Button {
@@ -370,7 +368,8 @@ struct ProjectWorkspaceView: View {
             ExportSheet(document: document)
         }
         .task {
-            if AIBackend.current == .gemini {
+            let provider = AIBackend.selectedProvider(for: document.projectData.context)
+            if provider == .gemini {
                 await modelStore.fetchModelsIfNeeded(for: document.projectData.context)
             }
         }
@@ -469,55 +468,64 @@ struct InputSidebarView: View {
     }
 }
 
-// MARK: - Model Picker Menu
+// MARK: - Provider + Model Picker Menu
 
-struct GeminiModelPickerMenu: View {
+struct ProviderModelPickerMenu: View {
     let context: ProjectContext
     @Bindable var modelStore: GeminiModelStore
     @Environment(\.forgeTheme) private var theme
 
-    @State private var selectedID = ""
+    @State private var provider: AIBackend = .gemini
+    @State private var selectedModelID = ""
 
     var body: some View {
         Menu {
-            if modelStore.isLoading && modelStore.availableModels.isEmpty {
-                Text("Loading models\u{2026}")
-            } else if modelStore.availableModels.isEmpty {
-                Text("No models available")
-                Button("Refresh") {
-                    Task { await modelStore.fetchModels(for: context) }
-                }
-            } else {
-                ForEach(modelStore.availableModels) { model in
-                    Button {
-                        selectedID = model.id
-                        GeminiModelSelection.setSelectedModelID(model.id, for: context)
-                    } label: {
-                        HStack {
-                            Text(model.displayName)
-                            if selectedID == model.id {
-                                Image(systemName: "checkmark")
+            // Gemini models (dynamic)
+            if provider == .gemini {
+                if modelStore.isLoading && modelStore.availableModels.isEmpty {
+                    Text("Loading models\u{2026}")
+                } else if modelStore.availableModels.isEmpty {
+                    Text("No models available")
+                    Button("Refresh") {
+                        Task { await modelStore.fetchModels(for: context) }
+                    }
+                } else {
+                    ForEach(modelStore.availableModels) { model in
+                        Button {
+                            selectedModelID = model.id
+                            ModelSelection.setSelectedModelID(model.id, provider: .gemini, context: context)
+                        } label: {
+                            HStack {
+                                Text(model.displayName)
+                                if selectedModelID == model.id {
+                                    Image(systemName: "checkmark")
+                                }
                             }
                         }
                     }
-                }
 
-                Divider()
+                    Divider()
 
-                Button("Refresh Models") {
-                    Task { await modelStore.fetchModels(for: context) }
+                    Button("Refresh Models") {
+                        Task { await modelStore.fetchModels(for: context) }
+                    }
                 }
+            } else {
+                // Static display for non-Gemini providers
+                Text(selectedModelID)
             }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "cpu")
                     .font(.system(size: 9))
-                Text(currentDisplayName.uppercased())
+                Text(displayLabel.uppercased())
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .tracking(1)
                     .lineLimit(1)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .bold))
+                if provider == .gemini {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 7, weight: .bold))
+                }
             }
             .foregroundStyle(ForgeColors.textSecondary)
             .padding(.horizontal, 8)
@@ -533,16 +541,25 @@ struct GeminiModelPickerMenu: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .onAppear {
-            selectedID = GeminiModelSelection.selectedModelID(for: context)
-        }
+        .onAppear { refreshState() }
     }
 
-    private var currentDisplayName: String {
-        if let model = modelStore.availableModels.first(where: { $0.id == selectedID }) {
-            return model.displayName
+    private func refreshState() {
+        provider = AIBackend.selectedProvider(for: context)
+        selectedModelID = ModelSelection.selectedModelID(provider: provider, context: context)
+    }
+
+    /// e.g. "Anthropic / Claude Sonnet" or "Gemini / Gemini 2.0 Flash"
+    private var displayLabel: String {
+        let providerName = provider.displayName
+        let modelName: String
+        if provider == .gemini,
+           let model = modelStore.availableModels.first(where: { $0.id == selectedModelID }) {
+            modelName = model.displayName
+        } else {
+            modelName = selectedModelID
         }
-        return selectedID.isEmpty ? "Select Model" : selectedID
+        return "\(providerName) / \(modelName)"
     }
 }
 

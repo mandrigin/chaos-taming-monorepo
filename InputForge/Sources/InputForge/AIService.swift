@@ -48,7 +48,7 @@ enum AIServiceError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noAPIKey:
-            return "No API key configured. Add your Gemini API key in Settings."
+            return "No API key configured. Add your API key in Settings \u{2192} AI Providers."
         case .networkError(let err):
             return "Network error: \(err.localizedDescription)"
         case .rateLimited(let retry):

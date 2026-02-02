@@ -3,75 +3,135 @@ import SwiftUI
 struct SettingsView: View {
     var body: some View {
         TabView {
-            Tab("API Keys", systemImage: "key.fill") {
-                APIKeysSettingsView()
+            Tab("AI Providers", systemImage: "cpu") {
+                AIProvidersSettingsView()
             }
             Tab("Personas", systemImage: "person.2.fill") {
                 PersonasSettingsView()
             }
-            Tab("AI Backend", systemImage: "cpu") {
-                AIBackendSettingsView()
-            }
         }
-        .frame(width: 520, height: 420)
+        .frame(width: 560, height: 520)
         .preferredColorScheme(.dark)
     }
 }
 
-// MARK: - API Keys
+// MARK: - AI Providers (per-context)
 
-struct APIKeysSettingsView: View {
-    @State private var workKey = ""
-    @State private var personalKey = ""
-    @State private var workKeyStored = false
-    @State private var personalKeyStored = false
+struct AIProvidersSettingsView: View {
+    @State private var selectedTab: ProjectContext = .work
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Context tab selector
+            Picker("Context", selection: $selectedTab) {
+                ForEach(ProjectContext.allCases) { context in
+                    Text(context.displayName).tag(context)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+
+            ContextProviderSettingsView(context: selectedTab)
+        }
+    }
+}
+
+/// Provider + model + API key configuration for a single context.
+private struct ContextProviderSettingsView: View {
+    let context: ProjectContext
+
+    @State private var selectedProvider: AIBackend = .gemini
+    @State private var apiKey = ""
+    @State private var keyStored = false
     @State private var errorMessage: String?
+    @State private var modelStore = GeminiModelStore.shared
+    @State private var selectedModelID = ""
+    @State private var claudeCodeAvailable = false
 
     var body: some View {
         Form {
-            Section {
-                Text("API keys are stored in the macOS Keychain. They are never saved in project files.")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(ForgeColors.textTertiary)
+            Section("Provider") {
+                ForEach(AIBackend.allCases, id: \.self) { backend in
+                    Button {
+                        selectedProvider = backend
+                        AIBackend.setSelectedProvider(backend, for: context)
+                        refreshState()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(backend.displayName)
+                                        .font(.system(.body, design: .monospaced, weight: .semibold))
+                                    if backend == .claudeCode {
+                                        Text(claudeCodeAvailable ? "DETECTED" : "NOT FOUND")
+                                            .font(.system(.caption2, design: .monospaced))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(claudeCodeAvailable ? ForgeColors.success.opacity(0.2) : ForgeColors.error.opacity(0.2))
+                                            .foregroundStyle(claudeCodeAvailable ? ForgeColors.success : ForgeColors.error)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                Text(backend.subtitle)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(ForgeColors.textTertiary)
+                            }
+                            Spacer()
+                            if selectedProvider == backend {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.tint)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
-            Section("Work \u{2014} Gemini API Key") {
-                HStack {
-                    SecureField("Enter API key", text: $workKey)
-                        .font(.system(.body, design: .monospaced))
-                    if workKeyStored {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(ForgeColors.success)
-                            .help("Key stored in Keychain")
+            if selectedProvider.requiresAPIKey {
+                Section("\(context.displayName) \u{2014} \(selectedProvider.displayName) API Key") {
+                    HStack {
+                        SecureField("Enter API key", text: $apiKey)
+                            .font(.system(.body, design: .monospaced))
+                        if keyStored {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(ForgeColors.success)
+                                .help("Key stored in Keychain")
+                        }
                     }
-                }
-                HStack(spacing: 8) {
-                    Button("Save") { saveKey(.work) }
-                        .buttonStyle(ForgeButtonStyle(compact: true))
-                        .disabled(workKey.isEmpty)
-                    Button("Clear") { clearKey(.work) }
-                        .buttonStyle(ForgeButtonStyle(variant: .destructive, compact: true))
-                        .disabled(!workKeyStored)
+                    HStack(spacing: 8) {
+                        Button("Save") { saveKey() }
+                            .buttonStyle(ForgeButtonStyle(compact: true))
+                            .disabled(apiKey.isEmpty)
+                        Button("Clear") { clearKey() }
+                            .buttonStyle(ForgeButtonStyle(variant: .destructive, compact: true))
+                            .disabled(!keyStored)
+                    }
                 }
             }
 
-            Section("Personal \u{2014} Gemini API Key") {
-                HStack {
-                    SecureField("Enter API key", text: $personalKey)
-                        .font(.system(.body, design: .monospaced))
-                    if personalKeyStored {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(ForgeColors.success)
-                            .help("Key stored in Keychain")
+            if selectedProvider == .gemini {
+                Section("\(context.displayName) \u{2014} Gemini Model") {
+                    DynamicGeminiModelPicker(
+                        selectedID: $selectedModelID,
+                        models: modelStore.availableModels,
+                        isLoading: modelStore.isLoading
+                    ) { id in
+                        ModelSelection.setSelectedModelID(id, provider: .gemini, context: context)
                     }
                 }
-                HStack(spacing: 8) {
-                    Button("Save") { saveKey(.personal) }
-                        .buttonStyle(ForgeButtonStyle(compact: true))
-                        .disabled(personalKey.isEmpty)
-                    Button("Clear") { clearKey(.personal) }
-                        .buttonStyle(ForgeButtonStyle(variant: .destructive, compact: true))
-                        .disabled(!personalKeyStored)
+
+                if let error = modelStore.lastError {
+                    Section {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(ForgeColors.error)
+                            Text(error)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(ForgeColors.error)
+                        }
+                    }
                 }
             }
 
@@ -88,30 +148,37 @@ struct APIKeysSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { refreshStatus() }
+        .onAppear { refreshState() }
+        .onChange(of: context) { refreshState() }
+        .task(id: selectedProvider) {
+            if selectedProvider == .gemini {
+                await modelStore.fetchModelsIfNeeded(for: context)
+            }
+        }
     }
 
-    private func saveKey(_ context: ProjectContext) {
-        let key = context == .work ? workKey : personalKey
+    private func saveKey() {
         do {
-            try KeychainService.save(apiKey: key, for: context)
-            if context == .work { workKey = "" } else { personalKey = "" }
+            try KeychainService.save(apiKey: apiKey, provider: selectedProvider, context: context)
+            apiKey = ""
             errorMessage = nil
         } catch {
             errorMessage = "Failed to save API key: \(error.localizedDescription)"
         }
-        refreshStatus()
+        refreshState()
     }
 
-    private func clearKey(_ context: ProjectContext) {
-        KeychainService.delete(for: context)
+    private func clearKey() {
+        KeychainService.delete(provider: selectedProvider, context: context)
         errorMessage = nil
-        refreshStatus()
+        refreshState()
     }
 
-    private func refreshStatus() {
-        workKeyStored = KeychainService.retrieve(for: .work) != nil
-        personalKeyStored = KeychainService.retrieve(for: .personal) != nil
+    private func refreshState() {
+        selectedProvider = AIBackend.selectedProvider(for: context)
+        keyStored = KeychainService.hasAPIKey(provider: selectedProvider, context: context)
+        selectedModelID = ModelSelection.selectedModelID(provider: selectedProvider, context: context)
+        claudeCodeAvailable = AIBackend.isClaudeCodeAvailable
     }
 }
 
@@ -195,7 +262,7 @@ private struct SettingsPersonaRow: View {
 
     private var displayPrompt: String {
         persona.isNeutral
-            ? "No flavor — just a competent project planning assistant"
+            ? "No flavor \u{2014} just a competent project planning assistant"
             : persona.systemPrompt
     }
 
@@ -283,90 +350,7 @@ private struct PersonaEditorSheet: View {
     }
 }
 
-// MARK: - AI Backend
-
-struct AIBackendSettingsView: View {
-    @State private var selected: AIBackend = .current
-    @State private var modelStore = GeminiModelStore.shared
-    @State private var workModelID = GeminiModelSelection.selectedModelID(for: .work)
-    @State private var personalModelID = GeminiModelSelection.selectedModelID(for: .personal)
-
-    var body: some View {
-        Form {
-            Section {
-                Text("Choose the AI backend for processing inputs and generating plans.")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(ForgeColors.textTertiary)
-            }
-
-            Section("Backend") {
-                ForEach(AIBackend.allCases, id: \.self) { (backend: AIBackend) in
-                    Button {
-                        selected = backend
-                        AIBackend.current = backend
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(backend.displayName)
-                                    .font(.system(.body, design: .monospaced, weight: .semibold))
-                                Text(backend.subtitle)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(ForgeColors.textTertiary)
-                            }
-                            Spacer()
-                            if selected == backend {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.tint)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            if selected == .gemini {
-                Section("Work \u{2014} Gemini Model") {
-                    DynamicGeminiModelPicker(
-                        selectedID: $workModelID,
-                        models: modelStore.availableModels,
-                        isLoading: modelStore.isLoading
-                    ) { id in
-                        GeminiModelSelection.setSelectedModelID(id, for: .work)
-                    }
-                }
-
-                Section("Personal \u{2014} Gemini Model") {
-                    DynamicGeminiModelPicker(
-                        selectedID: $personalModelID,
-                        models: modelStore.availableModels,
-                        isLoading: modelStore.isLoading
-                    ) { id in
-                        GeminiModelSelection.setSelectedModelID(id, for: .personal)
-                    }
-                }
-
-                if let error = modelStore.lastError {
-                    Section {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(ForgeColors.error)
-                            Text(error)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(ForgeColors.error)
-                        }
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .task {
-            if selected == .gemini {
-                await modelStore.fetchModelsIfNeeded(for: .work)
-            }
-        }
-    }
-}
+// MARK: - Gemini Model Picker (reusable)
 
 private struct DynamicGeminiModelPicker: View {
     @Binding var selectedID: String

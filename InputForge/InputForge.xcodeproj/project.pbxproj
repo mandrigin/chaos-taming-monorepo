@@ -11,6 +11,9 @@
 		3705909CD281264F865504C3 /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C79BD677B43BE7A6D5A0041; };
 		6C9D69AB49A2BDB944F3C96E /* AIResponseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52BDA359B09F01C477EA5155; };
 		222061C83A23806A8A6951D5 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3887A6CFD768A1A77E1062F; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* AnthropicAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7A8B9C0D1E2F; };
+		B2C3D4E5F6A7B8C9D0E1F2A3 /* OpenAIAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F7A8B9C0D1E2F3A; };
+		C3D4E5F6A7B8C9D0E1F2A3B4 /* ClaudeCodeAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C4D5E6F7A8B9C0D1E2F3A4B; };
 		81A6FF5F9230A32D887B7756 /* AnalysisCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB92693AC41F574D0A689F6; };
 		2117872EA9A35747C605D225 /* AnalysisResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = C197FE79294AF8EDAB444B63; };
 		52F8C910DD987276EF30E4F1 /* AnalysisResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8D7A82B539C77848CD93076; };
@@ -51,6 +54,9 @@
 		8C79BD677B43BE7A6D5A0041 /* AIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackend.swift; sourceTree = "<group>"; };
 		52BDA359B09F01C477EA5155 /* AIResponseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIResponseParser.swift; sourceTree = "<group>"; };
 		C3887A6CFD768A1A77E1062F /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7A8B9C0D1E2F /* AnthropicAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicAIService.swift; sourceTree = "<group>"; };
+		2B3C4D5E6F7A8B9C0D1E2F3A /* OpenAIAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIAIService.swift; sourceTree = "<group>"; };
+		3C4D5E6F7A8B9C0D1E2F3A4B /* ClaudeCodeAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeAIService.swift; sourceTree = "<group>"; };
 		5DB92693AC41F574D0A689F6 /* AnalysisCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisCoordinator.swift; sourceTree = "<group>"; };
 		C197FE79294AF8EDAB444B63 /* AnalysisResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisResult.swift; sourceTree = "<group>"; };
 		C8D7A82B539C77848CD93076 /* AnalysisResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisResultView.swift; sourceTree = "<group>"; };
@@ -114,8 +120,10 @@
 				C197FE79294AF8EDAB444B63 /* AnalysisResult.swift */,
 				C8D7A82B539C77848CD93076 /* AnalysisResultView.swift */,
 				74C3CB0E405F8B8F4E864B4D /* AnalysisService.swift */,
+				1A2B3C4D5E6F7A8B9C0D1E2F /* AnthropicAIService.swift */,
 				8B0368CF8F9F507C8D01665C /* AnnotationEditorView.swift */,
 				DA6011AA4E30AE80C984E417 /* AudioRecordingService.swift */,
+				3C4D5E6F7A8B9C0D1E2F3A4B /* ClaudeCodeAIService.swift */,
 				50DD56DF8010F489A3AC978B /* ClipboardHandler.swift */,
 				0A8C13525269D9F9FAC9D986 /* ContentView.swift */,
 				0725912B61394C4B2D823138 /* FoundationModelsAIService.swift */,
@@ -131,6 +139,7 @@
 				7AE67AE3F65BD2F663C805B9 /* InterrogationView.swift */,
 				0A7EB3DD69449E37A71B9E65 /* InterrogationViewModel.swift */,
 				6A947874E705F3E6FCA772AF /* KeychainService.swift */,
+				2B3C4D5E6F7A8B9C0D1E2F3A /* OpenAIAIService.swift */,
 				E639D528D822EA4364FFA5B0 /* Persona.swift */,
 				04E0DD2819E5215EF0B356DF /* PersonaStore.swift */,
 				B452013DD26D7CC4496A1335 /* ProjectContext.swift */,
@@ -204,8 +213,10 @@
 				2117872EA9A35747C605D225 /* AnalysisResult.swift in Sources */,
 				52F8C910DD987276EF30E4F1 /* AnalysisResultView.swift in Sources */,
 				FB399D676E67D4969C74ED01 /* AnalysisService.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* AnthropicAIService.swift in Sources */,
 				BB693717F3BAAC4F7C30273C /* AnnotationEditorView.swift in Sources */,
 				B4D6B53D1BF60D78CDE4F76D /* AudioRecordingService.swift in Sources */,
+				C3D4E5F6A7B8C9D0E1F2A3B4 /* ClaudeCodeAIService.swift in Sources */,
 				3F22A08C4DE0DA7A26ABAFE6 /* ClipboardHandler.swift in Sources */,
 				F3EB1DD40F7AFFCF4C5B2777 /* ContentView.swift in Sources */,
 				0183B6D8048644A96CF35DD7 /* FoundationModelsAIService.swift in Sources */,
@@ -221,6 +232,7 @@
 				D9F62C6AF5646B2C25A7D6C9 /* InterrogationView.swift in Sources */,
 				9C3B471A688CCF7F099912E0 /* InterrogationViewModel.swift in Sources */,
 				D94F3A7C08FD6C0B45E7BDAB /* KeychainService.swift in Sources */,
+				B2C3D4E5F6A7B8C9D0E1F2A3 /* OpenAIAIService.swift in Sources */,
 				35078D52F323793216331F72 /* Persona.swift in Sources */,
 				2484133D698A8F8AE2E4B964 /* PersonaStore.swift in Sources */,
 				5AF2151D201CC98E8C8DFB84 /* ProjectContext.swift in Sources */,

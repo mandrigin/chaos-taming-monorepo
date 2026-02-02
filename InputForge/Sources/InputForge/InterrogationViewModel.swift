@@ -186,9 +186,17 @@ final class InterrogationViewModel {
     // MARK: - Backend Resolution
 
     private static func resolveAIService(for context: ProjectContext) -> any AIService {
-        switch AIBackend.current {
+        let provider = AIBackend.selectedProvider(for: context)
+        let modelID = ModelSelection.selectedModelID(provider: provider, context: context)
+        switch provider {
         case .gemini:
-            return GeminiAIService(context: context, model: GeminiModelSelection.selectedModelID(for: context))
+            return GeminiAIService(context: context, model: modelID)
+        case .anthropic:
+            return AnthropicAIService(context: context, model: modelID)
+        case .claudeCode:
+            return ClaudeCodeAIService(model: modelID)
+        case .openai:
+            return OpenAIAIService(context: context, model: modelID)
         case .foundationModels:
             return FoundationModelsAIService()
         }
