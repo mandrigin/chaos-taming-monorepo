@@ -23,15 +23,19 @@ enum AnalysisState: Sendable {
 
 /// Manages the analysis lifecycle: validates inputs, invokes the analysis service,
 /// stores results with auto-versioning, and tracks progress.
+///
+/// Resolves the correct AI backend (Gemini / Foundation Models) based on
+/// `AIBackend.current` and the document's project context. An override service
+/// can be injected for testing.
 @Observable
 @MainActor
 final class AnalysisCoordinator {
     private(set) var state: AnalysisState = .idle
     private var analysisTask: Task<Void, Never>?
-    private let service: any AnalysisService
+    private let overrideService: (any AnalysisService)?
 
-    init(service: any AnalysisService = MockAnalysisService()) {
-        self.service = service
+    init(service: (any AnalysisService)? = nil) {
+        self.overrideService = service
     }
 
     /// Run analysis on the document's current inputs with the active persona.
@@ -44,6 +48,7 @@ final class AnalysisCoordinator {
         let persona = document.projectData.persona
         let projectName = document.projectData.name
         let nextVersion = (document.versions.map(\.versionNumber).max() ?? 0) + 1
+        let service = overrideService ?? Self.resolveService(for: document.projectData.context)
 
         state = .analyzing(progress: 0)
 
@@ -93,5 +98,17 @@ final class AnalysisCoordinator {
         if case .error = state {
             state = .idle
         }
+    }
+
+    // MARK: - Backend Resolution
+
+    private static func resolveService(for context: ProjectContext) -> any AnalysisService {
+        let aiService: any AIService = switch AIBackend.current {
+        case .gemini:
+            GeminiAIService(context: context)
+        case .foundationModels:
+            FoundationModelsAIService()
+        }
+        return LiveAnalysisService(aiService: aiService)
     }
 }

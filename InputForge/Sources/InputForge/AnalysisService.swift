@@ -86,10 +86,47 @@ enum AnalysisPromptBuilder {
     }
 }
 
+// MARK: - Live Analysis Service
+
+/// Bridges the high-level AnalysisService protocol to the concrete AIService
+/// implementations (Gemini / Foundation Models) via PromptBuilder and AIResponseParser.
+struct LiveAnalysisService: AnalysisService {
+    let aiService: any AIService
+
+    func analyze(
+        inputs: [InputItem],
+        persona: Persona,
+        projectName: String,
+        onProgress: @Sendable (Double) -> Void
+    ) async throws -> AnalysisResult {
+        guard !inputs.isEmpty else { throw AnalysisError.noInputs }
+
+        onProgress(0.1)
+
+        let messages = PromptBuilder.buildAnalysisMessages(
+            persona: persona,
+            inputs: inputs,
+            projectName: projectName,
+            version: 0 // Caller stamps the real version number
+        )
+
+        onProgress(0.2)
+
+        let response = try await aiService.analyze(messages: messages)
+
+        onProgress(0.9)
+
+        let result = try AIResponseParser.parseAnalysisResponse(response, version: 0)
+
+        onProgress(1.0)
+
+        return result
+    }
+}
+
 // MARK: - Mock Analysis Service
 
 /// Returns realistic mock analysis results for UI development and testing.
-/// Will be replaced by Gemini API / Foundation Models in Phase 4.
 struct MockAnalysisService: AnalysisService {
     func analyze(
         inputs: [InputItem],

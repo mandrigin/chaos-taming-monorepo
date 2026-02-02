@@ -40,7 +40,7 @@ final class InterrogationViewModel {
 
     init(document: InputForgeDocument, aiService: (any AIService)? = nil) {
         self.document = document
-        self.aiService = aiService ?? GeminiAIService(context: document.projectData.context)
+        self.aiService = aiService ?? Self.resolveAIService(for: document.projectData.context)
 
         // Initialize interrogation state if needed
         if document.projectData.interrogation == nil {
@@ -134,6 +134,17 @@ final class InterrogationViewModel {
         }
 
         isReanalyzing = false
+    }
+
+    // MARK: - Backend Resolution
+
+    private static func resolveAIService(for context: ProjectContext) -> any AIService {
+        switch AIBackend.current {
+        case .gemini:
+            return GeminiAIService(context: context)
+        case .foundationModels:
+            return FoundationModelsAIService()
+        }
     }
 
     // MARK: - Private
