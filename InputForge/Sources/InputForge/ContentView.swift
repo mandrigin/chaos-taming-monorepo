@@ -328,11 +328,3 @@ struct AnalysisPreviewPlaceholder: View {
     }
 }
 
-struct SettingsView: View {
-    var body: some View {
-        Text("Settings")
-            .font(.system(.body, design: .monospaced))
-            .padding()
-            .frame(width: 400, height: 300)
-    }
-}

@@ -18,9 +18,6 @@ struct KeychainService: Sendable {
     }
 
     /// Retrieve the Gemini API key for the given context.
-    ///
-    /// - Parameter context: Work or Personal context.
-    /// - Returns: The API key string, or nil if not stored.
     static func retrieveAPIKey(for context: ProjectContext) -> String? {
         let service = serviceName(for: context)
         let query: [String: Any] = [
@@ -41,17 +38,11 @@ struct KeychainService: Sendable {
     }
 
     /// Store or update the Gemini API key for the given context.
-    ///
-    /// - Parameters:
-    ///   - key: The API key string.
-    ///   - context: Work or Personal context.
-    /// - Returns: True if the operation succeeded.
     @discardableResult
     static func storeAPIKey(_ key: String, for context: ProjectContext) -> Bool {
         let service = serviceName(for: context)
         guard let data = key.data(using: .utf8) else { return false }
 
-        // Delete existing entry first
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -59,7 +50,6 @@ struct KeychainService: Sendable {
         ]
         SecItemDelete(deleteQuery as CFDictionary)
 
-        // Add new entry
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -73,9 +63,6 @@ struct KeychainService: Sendable {
     }
 
     /// Delete the Gemini API key for the given context.
-    ///
-    /// - Parameter context: Work or Personal context.
-    /// - Returns: True if the key was deleted (or didn't exist).
     @discardableResult
     static func deleteAPIKey(for context: ProjectContext) -> Bool {
         let service = serviceName(for: context)
@@ -101,5 +88,32 @@ struct KeychainService: Sendable {
 
         let status = SecItemCopyMatching(query as CFDictionary, nil)
         return status == errSecSuccess
+    }
+
+    // MARK: - Convenience aliases (used by SettingsView)
+
+    static func save(apiKey: String, for context: ProjectContext) throws {
+        guard storeAPIKey(apiKey, for: context) else {
+            throw KeychainError.saveFailed
+        }
+    }
+
+    static func retrieve(for context: ProjectContext) -> String? {
+        retrieveAPIKey(for: context)
+    }
+
+    static func delete(for context: ProjectContext) {
+        deleteAPIKey(for: context)
+    }
+
+    enum KeychainError: LocalizedError {
+        case saveFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .saveFailed:
+                return "Keychain save failed"
+            }
+        }
     }
 }
