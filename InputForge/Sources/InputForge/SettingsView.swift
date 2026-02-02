@@ -281,6 +281,8 @@ private struct PersonaEditorSheet: View {
 
 struct AIBackendSettingsView: View {
     @State private var selected: AIBackend = .current
+    @State private var workModel: GeminiModel = .current(for: .work)
+    @State private var personalModel: GeminiModel = .current(for: .personal)
 
     var body: some View {
         Form {
@@ -315,7 +317,52 @@ struct AIBackendSettingsView: View {
                     .buttonStyle(.plain)
                 }
             }
+
+            if selected == .gemini {
+                Section("Work \u{2014} Gemini Model") {
+                    GeminiModelPicker(selection: $workModel) { model in
+                        GeminiModel.setCurrent(model, for: .work)
+                    }
+                }
+
+                Section("Personal \u{2014} Gemini Model") {
+                    GeminiModelPicker(selection: $personalModel) { model in
+                        GeminiModel.setCurrent(model, for: .personal)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct GeminiModelPicker: View {
+    @Binding var selection: GeminiModel
+    var onChange: (GeminiModel) -> Void
+
+    var body: some View {
+        ForEach(GeminiModel.allCases) { model in
+            Button {
+                selection = model
+                onChange(model)
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(model.displayName)
+                            .font(.system(.body, design: .monospaced, weight: .medium))
+                        Text(model.description)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(ForgeColors.textTertiary)
+                    }
+                    Spacer()
+                    if selection == model {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.tint)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
