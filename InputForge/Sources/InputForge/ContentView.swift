@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 struct ContentView: View {
@@ -148,6 +149,7 @@ struct ContextCard: View {
 struct ProjectWorkspaceView: View {
     @Bindable var document: InputForgeDocument
     @Environment(\.forgeTheme) private var theme
+    @State private var showVersionHistory = false
 
     var body: some View {
         NavigationSplitView {
@@ -187,6 +189,13 @@ struct ProjectWorkspaceView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 2))
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showVersionHistory)) { _ in
+            showVersionHistory = true
+        }
+        .sheet(isPresented: $showVersionHistory) {
+            VersionHistoryView(document: document)
+                .environment(\.forgeTheme, theme)
         }
     }
 }
