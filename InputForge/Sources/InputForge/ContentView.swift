@@ -631,6 +631,10 @@ struct PersonaPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.forgeTheme) private var theme
 
+    private var flavoredPersonas: [Persona] {
+        store.allPersonas.filter { !$0.isNeutral }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -649,39 +653,68 @@ struct PersonaPickerSheet: View {
 
             List {
                 Section {
-                    ForEach(store.allPersonas) { persona in
-                        Button {
-                            document.setPersona(persona)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(persona.name)
-                                        .font(.system(.body, design: .monospaced, weight: .semibold))
-                                        .foregroundStyle(ForgeColors.textPrimary)
-                                    Text(persona.systemPrompt)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .foregroundStyle(ForgeColors.textTertiary)
-                                        .lineLimit(2)
-                                }
-
-                                Spacer()
-
-                                if document.projectData.persona.id == persona.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(theme.accent)
-                                }
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+                    PersonaRow(
+                        persona: .neutral,
+                        subtitle: "No flavor — just a competent project planning assistant",
+                        isSelected: document.projectData.persona.isNeutral
+                    ) {
+                        document.setPersona(.neutral)
+                        dismiss()
                     }
                 } header: {
-                    ForgeSectionHeader(title: "AVAILABLE PERSONAS")
+                    ForgeSectionHeader(title: "DEFAULT")
+                }
+
+                Section {
+                    ForEach(flavoredPersonas) { persona in
+                        PersonaRow(
+                            persona: persona,
+                            subtitle: persona.systemPrompt,
+                            isSelected: document.projectData.persona.id == persona.id
+                        ) {
+                            document.setPersona(persona)
+                            dismiss()
+                        }
+                    }
+                } header: {
+                    ForgeSectionHeader(title: "FLAVOR MODIFIERS")
                 }
             }
         }
         .frame(width: 480, height: 400)
+    }
+}
+
+struct PersonaRow: View {
+    let persona: Persona
+    let subtitle: String
+    let isSelected: Bool
+    let action: () -> Void
+    @Environment(\.forgeTheme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(persona.name)
+                        .font(.system(.body, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(ForgeColors.textPrimary)
+                    Text(subtitle)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(ForgeColors.textTertiary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(theme.accent)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

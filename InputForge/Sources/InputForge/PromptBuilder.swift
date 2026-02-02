@@ -148,14 +148,22 @@ struct PromptBuilder: Sendable {
 
     // MARK: - Private Helpers
 
-    private static func buildSystemPrompt(persona: Persona) -> String {
+    private static let basePrompt = """
+        You are a project planning assistant. Analyze inputs and create structured, \
+        actionable project plans. Be thorough, practical, and precise.
         """
-        \(persona.systemPrompt)
+
+    private static func buildSystemPrompt(persona: Persona) -> String {
+        var prompt = basePrompt
+        if !persona.isNeutral {
+            prompt += "\n\n\(persona.systemPrompt)"
+        }
+
+        return """
+        \(prompt)
 
         You are analyzing project inputs to produce a structured plan. \
         Your response MUST be valid JSON matching the following schema exactly.
-
-        Persona: \(persona.name)
 
         ## Output JSON Schema
 
@@ -209,14 +217,17 @@ struct PromptBuilder: Sendable {
         inputs: [InputItem],
         currentAnalysis: AnalysisResult?
     ) -> String {
+        var personaBlock = basePrompt
+        if !persona.isNeutral {
+            personaBlock += "\n\n\(persona.systemPrompt)"
+        }
+
         var prompt = """
-        \(persona.systemPrompt)
+        \(personaBlock)
 
         You are in INTERROGATION mode. You are the interrogator — YOU ask the questions, \
         the user answers. Your job is to identify gaps, ambiguities, and missing information \
         in the project plan, then ask targeted questions to resolve them one at a time.
-
-        Persona: \(persona.name)
 
         ## Rules
         - Ask ONE focused question per turn (do not ask multiple questions at once)
