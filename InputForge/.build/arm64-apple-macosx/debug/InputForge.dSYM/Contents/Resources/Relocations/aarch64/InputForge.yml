@@ -1,5 +1,0 @@
----
-triple:          'arm64-apple-darwin'
-binary-path:     '/Users/mandrigin/gt/chaos/polecats/obsidian/chaos/InputForge/.build/arm64-apple-macosx/debug/InputForge'
-relocations:     []
-...
