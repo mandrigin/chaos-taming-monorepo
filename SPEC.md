@@ -247,7 +247,7 @@ MyProject.inputforge/
 | ⌘O | Open project |
 | ⌘V | Paste input (context-aware) |
 | ⌘⇧A | Run analysis |
-| ⌘⇧Q | Enter interrogation mode |
+| ⌘⇧I | Enter interrogation mode |
 | ⌘⇧E | Export to TaskPaper |
 | ⌘⇧R | Start/stop audio recording |
 | ⌘⇧P | Switch persona |
