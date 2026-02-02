@@ -188,7 +188,7 @@ final class InterrogationViewModel {
     private static func resolveAIService(for context: ProjectContext) -> any AIService {
         switch AIBackend.current {
         case .gemini:
-            return GeminiAIService(context: context, model: GeminiModel.current(for: context).apiName)
+            return GeminiAIService(context: context, model: GeminiModelSelection.selectedModelID(for: context))
         case .foundationModels:
             return FoundationModelsAIService()
         }

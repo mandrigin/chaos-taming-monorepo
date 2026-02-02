@@ -151,6 +151,7 @@ struct ProjectWorkspaceView: View {
     @Environment(\.forgeTheme) private var theme
     @State private var audioService = AudioRecordingService()
     @State private var coordinator = AnalysisCoordinator()
+    @State private var modelStore = GeminiModelStore.shared
     @State private var isInterrogating = false
     @State private var showingExport = false
     @State private var showVersionHistory = false
@@ -252,6 +253,13 @@ struct ProjectWorkspaceView: View {
                         ForgeBadge(text: document.projectData.context.displayName.uppercased())
 
                         ForgeBadge(text: document.projectData.persona.name.uppercased(), style: .muted)
+
+                        if AIBackend.current == .gemini {
+                            GeminiModelPickerMenu(
+                                context: document.projectData.context,
+                                modelStore: modelStore
+                            )
+                        }
 
                         if document.projectData.currentAnalysis != nil {
                             Button {
@@ -361,6 +369,11 @@ struct ProjectWorkspaceView: View {
         .sheet(isPresented: $showExportSheet) {
             ExportSheet(document: document)
         }
+        .task {
+            if AIBackend.current == .gemini {
+                await modelStore.fetchModelsIfNeeded(for: document.projectData.context)
+            }
+        }
     }
 
     private func finishRecording() {
@@ -453,6 +466,83 @@ struct InputSidebarView: View {
         case .wardleyMap: return "map"
         case .chat: return "bubble.left.and.bubble.right"
         }
+    }
+}
+
+// MARK: - Model Picker Menu
+
+struct GeminiModelPickerMenu: View {
+    let context: ProjectContext
+    @Bindable var modelStore: GeminiModelStore
+    @Environment(\.forgeTheme) private var theme
+
+    @State private var selectedID = ""
+
+    var body: some View {
+        Menu {
+            if modelStore.isLoading && modelStore.availableModels.isEmpty {
+                Text("Loading models\u{2026}")
+            } else if modelStore.availableModels.isEmpty {
+                Text("No models available")
+                Button("Refresh") {
+                    Task { await modelStore.fetchModels(for: context) }
+                }
+            } else {
+                ForEach(modelStore.availableModels) { model in
+                    Button {
+                        selectedID = model.id
+                        GeminiModelSelection.setSelectedModelID(model.id, for: context)
+                    } label: {
+                        HStack {
+                            Text(model.displayName)
+                            if selectedID == model.id {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                Button("Refresh Models") {
+                    Task { await modelStore.fetchModels(for: context) }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 9))
+                Text(currentDisplayName.uppercased())
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .tracking(1)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 7, weight: .bold))
+            }
+            .foregroundStyle(ForgeColors.textSecondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(ForgeColors.surface)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 2)
+                    .strokeBorder(ForgeColors.border, lineWidth: 1)
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .onAppear {
+            selectedID = GeminiModelSelection.selectedModelID(for: context)
+        }
+    }
+
+    private var currentDisplayName: String {
+        if let model = modelStore.availableModels.first(where: { $0.id == selectedID }) {
+            return model.displayName
+        }
+        return selectedID.isEmpty ? "Select Model" : selectedID
     }
 }
 
