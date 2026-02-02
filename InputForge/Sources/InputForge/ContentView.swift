@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 struct ContentView: View {
@@ -152,6 +153,7 @@ struct ProjectWorkspaceView: View {
     @State private var coordinator = AnalysisCoordinator()
     @State private var isInterrogating = false
     @State private var showingExport = false
+    @State private var showVersionHistory = false
 
     var body: some View {
         ZStack {
@@ -330,6 +332,13 @@ struct ProjectWorkspaceView: View {
                     document.addInput(result.0)
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showVersionHistory)) { _ in
+            showVersionHistory = true
+        }
+        .sheet(isPresented: $showVersionHistory) {
+            VersionHistoryView(document: document)
+                .environment(\.forgeTheme, theme)
         }
     }
 
