@@ -105,7 +105,7 @@ final class AnalysisCoordinator {
     private static func resolveService(for context: ProjectContext) -> any AnalysisService {
         let aiService: any AIService = switch AIBackend.current {
         case .gemini:
-            GeminiAIService(context: context)
+            GeminiAIService(context: context, model: GeminiModel.current(for: context).apiName)
         case .foundationModels:
             FoundationModelsAIService()
         }
