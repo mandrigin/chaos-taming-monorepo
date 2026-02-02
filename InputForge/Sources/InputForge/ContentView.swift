@@ -149,27 +149,87 @@ struct ProjectWorkspaceView: View {
     @Bindable var document: InputForgeDocument
     @Environment(\.forgeTheme) private var theme
     @State private var audioService = AudioRecordingService()
+    @State private var coordinator = AnalysisCoordinator()
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
             NavigationSplitView {
                 InputSidebarView(document: document)
                     .navigationSplitViewColumnWidth(min: 220, ideal: 260)
             } detail: {
-                if document.projectData.currentAnalysis != nil {
-                    AnalysisPreviewPlaceholder()
-                } else {
-                    InputStageView(document: document)
+                VStack(spacing: 0) {
+                    // Error banner
+                    if case .error(let message) = coordinator.state {
+                        AnalysisErrorBanner(message: message) {
+                            coordinator.dismissError()
+                        }
+                        .padding(.top, 8)
+                    }
+
+                    // Main content
+                    if let analysis = document.projectData.currentAnalysis {
+                        AnalysisResultView(
+                            analysis: analysis,
+                            personaName: document.projectData.persona.name,
+                            onReanalyze: { coordinator.runAnalysis(document: document) }
+                        )
+                    } else {
+                        InputStageView(document: document)
+                    }
                 }
             }
             .toolbar {
                 ToolbarItem(placement: .automatic) {
-                    Text(document.projectData.persona.name)
-                        .font(.system(.caption, design: .monospaced))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.quaternary)
-                        .clipShape(Capsule())
+                    HStack(spacing: 8) {
+                        // Analyze button
+                        Button {
+                            coordinator.runAnalysis(document: document)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 9))
+                                Text("ANALYZE")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .tracking(1)
+                            }
+                            .foregroundStyle(theme.accent)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(theme.accentDim.opacity(0.3))
+                            }
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .strokeBorder(theme.accent.opacity(0.5), lineWidth: 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(coordinator.state.isAnalyzing || document.projectData.inputs.isEmpty)
+
+                        Text(document.projectData.context.displayName.uppercased())
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(1)
+                            .foregroundStyle(theme.accent)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(theme.accentDim.opacity(0.3))
+                            }
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .strokeBorder(theme.accent.opacity(0.5), lineWidth: 1)
+                            }
+
+                        Text(document.projectData.persona.name.uppercased())
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .tracking(1)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.quaternary)
+                            .clipShape(RoundedRectangle(cornerRadius: 2))
+                    }
                 }
             }
 
@@ -178,40 +238,23 @@ struct ProjectWorkspaceView: View {
                     finishRecording()
                 }
             }
+
+            // Progress overlay
+            if coordinator.state.isAnalyzing {
+                AnalysisProgressView(
+                    progress: coordinator.state.progress,
+                    onCancel: { coordinator.cancel() }
+                )
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .runAnalysis)) { _ in
+            coordinator.runAnalysis(document: document)
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleAudioRecording)) { _ in
             if audioService.isRecording {
                 finishRecording()
             } else {
                 _ = audioService.toggle()
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                HStack(spacing: 8) {
-                    Text(document.projectData.context.displayName.uppercased())
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .tracking(1)
-                        .foregroundStyle(theme.accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(theme.accentDim.opacity(0.3))
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 2)
-                                .strokeBorder(theme.accent.opacity(0.5), lineWidth: 1)
-                        }
-
-                    Text(document.projectData.persona.name.uppercased())
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .tracking(1)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.quaternary)
-                        .clipShape(RoundedRectangle(cornerRadius: 2))
-                }
             }
         }
         .onPasteCommand(of: [.image, .png, .tiff, .utf8PlainText]) { providers in
@@ -313,18 +356,6 @@ struct InputStageView: View {
         } else {
             InputTrayView(document: document)
         }
-    }
-}
-
-struct AnalysisPreviewPlaceholder: View {
-    @Environment(\.forgeTheme) private var theme
-
-    var body: some View {
-        Text("ANALYSIS RESULTS")
-            .font(.system(.body, design: .monospaced, weight: .medium))
-            .tracking(2)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
