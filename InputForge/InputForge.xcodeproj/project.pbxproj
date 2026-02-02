@@ -18,6 +18,7 @@
 		BB693717F3BAAC4F7C30273C /* AnnotationEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0368CF8F9F507C8D01665C; };
 		B4D6B53D1BF60D78CDE4F76D /* AudioRecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6011AA4E30AE80C984E417; };
 		3F22A08C4DE0DA7A26ABAFE6 /* ClipboardHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50DD56DF8010F489A3AC978B; };
+		E8D4A1F63B920C7E5AF18D42 /* InputProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F3A92E1D4B608C5A2E71D93; };
 		F3EB1DD40F7AFFCF4C5B2777 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A8C13525269D9F9FAC9D986; };
 		0183B6D8048644A96CF35DD7 /* FoundationModelsAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0725912B61394C4B2D823138; };
 		D173BF6E475EA0B5487C11DB /* GeminiAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA121610F574C8EEC78BD7AB; };
@@ -65,6 +66,7 @@
 		0058D72345BC7B5DD0B38367 /* InputForgeCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputForgeCommands.swift; sourceTree = "<group>"; };
 		6FF0A26909EC41AB0395733B /* InputForgeDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputForgeDocument.swift; sourceTree = "<group>"; };
 		47C0B52C3A62B9EB37396FF6 /* InputItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputItem.swift; sourceTree = "<group>"; };
+		7F3A92E1D4B608C5A2E71D93 /* InputProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputProcessor.swift; sourceTree = "<group>"; };
 		07343473FA9C3FA7971B8605 /* InputTrayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTrayView.swift; sourceTree = "<group>"; };
 		807241CDB4E4E1D87C136090 /* InterrogationMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterrogationMessage.swift; sourceTree = "<group>"; };
 		7AE67AE3F65BD2F663C805B9 /* InterrogationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterrogationView.swift; sourceTree = "<group>"; };
@@ -124,6 +126,7 @@
 				0058D72345BC7B5DD0B38367 /* InputForgeCommands.swift */,
 				6FF0A26909EC41AB0395733B /* InputForgeDocument.swift */,
 				47C0B52C3A62B9EB37396FF6 /* InputItem.swift */,
+				7F3A92E1D4B608C5A2E71D93 /* InputProcessor.swift */,
 				07343473FA9C3FA7971B8605 /* InputTrayView.swift */,
 				807241CDB4E4E1D87C136090 /* InterrogationMessage.swift */,
 				7AE67AE3F65BD2F663C805B9 /* InterrogationView.swift */,
@@ -214,6 +217,7 @@
 				71FE9F18DDCE2B0DA843DF61 /* InputForgeCommands.swift in Sources */,
 				739F6861CA3C211F18B8534F /* InputForgeDocument.swift in Sources */,
 				74099A2A15FE39DDA2DCB94B /* InputItem.swift in Sources */,
+				E8D4A1F63B920C7E5AF18D42 /* InputProcessor.swift in Sources */,
 				5D99F629478F4808BECECA5F /* InputTrayView.swift in Sources */,
 				1618848B610DF096D52AF922 /* InterrogationMessage.swift in Sources */,
 				D9F62C6AF5646B2C25A7D6C9 /* InterrogationView.swift in Sources */,
