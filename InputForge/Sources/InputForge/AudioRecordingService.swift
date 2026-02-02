@@ -7,6 +7,7 @@ import SwiftUI
 final class AudioRecordingService {
     var isRecording = false
     var recordingDuration: TimeInterval = 0
+    var lastError: String?
 
     private var recorder: AVAudioRecorder?
     private var timer: Timer?
@@ -39,6 +40,7 @@ final class AudioRecordingService {
             recorder?.record()
             isRecording = true
             recordingDuration = 0
+            lastError = nil
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                 Task { @MainActor in
                     self?.recordingDuration += 0.1
@@ -46,6 +48,7 @@ final class AudioRecordingService {
             }
         } catch {
             isRecording = false
+            lastError = "Recording failed: \(error.localizedDescription)"
         }
     }
 
@@ -66,24 +69,27 @@ struct AudioRecordingBar: View {
     let duration: TimeInterval
     let onStop: () -> Void
 
+    @Environment(\.forgeTheme) private var theme
+
     var body: some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(.red)
+                .fill(ForgeColors.error)
                 .frame(width: 10, height: 10)
 
-            Text("Recording")
+            Text("RECORDING")
                 .font(.system(.caption, design: .monospaced, weight: .bold))
+                .tracking(1)
 
             Text(formattedDuration)
                 .font(.system(.caption, design: .monospaced))
                 .monospacedDigit()
 
-            // Simple waveform visualization
+            // Waveform visualization
             HStack(spacing: 2) {
                 ForEach(0..<12, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(.red.opacity(0.6))
+                        .fill(theme.accent.opacity(0.7))
                         .frame(width: 3, height: barHeight(for: i))
                 }
             }
@@ -94,13 +100,21 @@ struct AudioRecordingBar: View {
             Button(action: onStop) {
                 Image(systemName: "stop.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(ForgeColors.error)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .background {
+            Rectangle()
+                .fill(ForgeColors.surface)
+        }
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(ForgeColors.border)
+                .frame(height: 1)
+        }
     }
 
     private var formattedDuration: String {

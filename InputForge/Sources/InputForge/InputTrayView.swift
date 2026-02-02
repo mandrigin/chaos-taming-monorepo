@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 /// Supports drag-to-reorder and has a compact drop zone for adding more files.
 struct InputTrayView: View {
     @Bindable var document: InputForgeDocument
+    @Environment(\.forgeTheme) private var theme
     @State private var selectedInputId: UUID?
     @State private var isDragTargeted = false
 
@@ -57,17 +58,17 @@ struct InputTrayView: View {
     private var compactDropZone: some View {
         HStack(spacing: 8) {
             Image(systemName: "plus.circle.dashed")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.textTertiary)
             Text("Drop more files here")
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 44)
         .background {
             RoundedRectangle(cornerRadius: 4)
                 .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [6, 3]))
-                .foregroundStyle(isDragTargeted ? .primary : .quaternary)
+                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.border)
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
@@ -105,13 +106,16 @@ struct InputTrayItemView: View {
     let onDelete: () -> Void
     let onAnnotate: () -> Void
 
+    @Environment(\.forgeTheme) private var theme
+    @State private var isHovered = false
+
     var body: some View {
         VStack(spacing: 4) {
             // Thumbnail area
             thumbnailView
                 .frame(height: 100)
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .clipShape(RoundedRectangle(cornerRadius: 2))
 
             // Label
             HStack {
@@ -125,18 +129,33 @@ struct InputTrayItemView: View {
                 if !input.annotations.isEmpty {
                     Label("\(input.annotations.count)", systemImage: "note.text")
                         .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.accent.opacity(0.8))
                 }
             }
         }
         .padding(8)
         .background {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 2)
+                .fill(
+                    isSelected
+                        ? theme.accentDim.opacity(0.3)
+                        : (isHovered ? ForgeColors.surfaceHover : Color.clear)
+                )
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 2)
+                .strokeBorder(
+                    isSelected ? theme.accent.opacity(0.6) : (isHovered ? ForgeColors.border : Color.clear),
+                    lineWidth: isSelected ? 2 : 1
+                )
         }
         .contentShape(Rectangle())
         .onTapGesture { onSelect() }
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isHovered = hovering
+            }
+        }
         .contextMenu {
             Button("Add Annotation") { onAnnotate() }
             Divider()
@@ -146,56 +165,37 @@ struct InputTrayItemView: View {
 
     @ViewBuilder
     private var thumbnailView: some View {
+        let iconSize: CGFloat = 36
         switch input.type {
         case .image, .screenshot:
-            Image(systemName: "photo.fill")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.quaternary)
+            thumbnailPlaceholder(systemName: "photo.fill", iconSize: iconSize)
         case .audio:
-            Image(systemName: "waveform")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.quaternary)
+            thumbnailPlaceholder(systemName: "waveform", iconSize: iconSize)
         case .video:
-            Image(systemName: "film")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.quaternary)
+            thumbnailPlaceholder(systemName: "film", iconSize: iconSize)
         case .document:
-            Image(systemName: "doc.text.fill")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.quaternary)
+            thumbnailPlaceholder(systemName: "doc.text.fill", iconSize: iconSize)
         case .text:
             Text(input.textContent?.prefix(80) ?? "Text")
                 .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ForgeColors.textTertiary)
                 .padding(4)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(.quaternary)
+                .background(ForgeColors.surface)
         case .mindmap:
-            Image(systemName: "brain")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.quaternary)
+            thumbnailPlaceholder(systemName: "brain", iconSize: iconSize)
         case .wardleyMap:
-            Image(systemName: "map")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.quaternary)
+            thumbnailPlaceholder(systemName: "map", iconSize: iconSize)
         case .chat:
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.quaternary)
+            thumbnailPlaceholder(systemName: "bubble.left.and.bubble.right", iconSize: iconSize)
         }
+    }
+
+    private func thumbnailPlaceholder(systemName: String, iconSize: CGFloat) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: iconSize))
+            .foregroundStyle(ForgeColors.textTertiary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ForgeColors.surface)
     }
 }
