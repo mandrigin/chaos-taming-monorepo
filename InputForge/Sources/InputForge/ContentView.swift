@@ -148,13 +148,16 @@ struct ContextCard: View {
 struct ProjectWorkspaceView: View {
     @Bindable var document: InputForgeDocument
     @Environment(\.forgeTheme) private var theme
+    @State private var showingExport = false
 
     var body: some View {
         NavigationSplitView {
             InputSidebarView(document: document)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
-            if document.projectData.currentAnalysis != nil {
+            if showingExport, document.projectData.currentAnalysis != nil {
+                TaskPaperPreviewView(document: document)
+            } else if document.projectData.currentAnalysis != nil {
                 AnalysisPreviewPlaceholder()
             } else {
                 InputStageView(document: document)
@@ -185,7 +188,38 @@ struct ProjectWorkspaceView: View {
                         .padding(.vertical, 4)
                         .background(.quaternary)
                         .clipShape(RoundedRectangle(cornerRadius: 2))
+
+                    if document.projectData.currentAnalysis != nil {
+                        Button {
+                            showingExport.toggle()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: showingExport ? "xmark" : "square.and.arrow.up")
+                                    .font(.system(size: 10))
+                                Text(showingExport ? "CLOSE" : "EXPORT")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .tracking(1)
+                            }
+                            .foregroundStyle(showingExport ? .white : theme.accent)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(showingExport ? theme.accent.opacity(0.3) : theme.accentDim.opacity(0.3))
+                            }
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .strokeBorder(theme.accent.opacity(0.5), lineWidth: 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .exportTaskPaper)) { _ in
+            if document.projectData.currentAnalysis != nil {
+                showingExport = true
             }
         }
     }
