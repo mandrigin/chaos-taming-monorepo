@@ -29,15 +29,53 @@ struct PromptBuilder: Sendable {
         ]
     }
 
-    /// Build messages for an interrogation chat turn.
+    /// Build messages for the AI's opening interrogation turn (no user message yet).
+    ///
+    /// The AI analyzes inputs and uncertainty flags, then asks the first targeted question.
+    ///
+    /// - Parameters:
+    ///   - persona: The active persona.
+    ///   - inputs: The project inputs for context.
+    ///   - currentAnalysis: The current analysis result, if any.
+    ///   - imageDataProvider: Optional closure returning image data + mime type for an input.
+    /// - Returns: An array of AIMessage for the AI service.
+    static func buildInterrogationStartMessages(
+        persona: Persona,
+        inputs: [InputItem],
+        currentAnalysis: AnalysisResult?,
+        imageDataProvider: ((InputItem) -> (Data, String)?)? = nil
+    ) -> [AIMessage] {
+        var messages: [AIMessage] = []
+
+        let systemPrompt = buildChatSystemPrompt(
+            persona: persona,
+            inputs: inputs,
+            currentAnalysis: currentAnalysis
+        )
+        messages.append(.system(systemPrompt))
+
+        // Trigger message with input images so the AI can see them
+        var parts: [AIContentPart] = [.text("Begin interrogation. Review my inputs and analysis, then ask your first question.")]
+        if let imageDataProvider {
+            for input in inputs where input.type == .image || input.type == .screenshot {
+                if let (data, mimeType) = imageDataProvider(input) {
+                    parts.append(.imageData(data, mimeType: mimeType))
+                }
+            }
+        }
+        messages.append(.user(parts))
+
+        return messages
+    }
+
+    /// Build messages for an interrogation chat turn (user answered, AI asks next question).
     ///
     /// - Parameters:
     ///   - persona: The active persona.
     ///   - history: The existing interrogation messages.
-    ///   - newUserMessage: The new message from the user.
+    ///   - newUserMessage: The user's answer to the AI's question.
     ///   - inputs: The project inputs for context.
     ///   - currentAnalysis: The current analysis result, if any.
-    ///   - imageDataProvider: Optional closure returning image data + mime type for an input.
     /// - Returns: An array of AIMessage for the AI service.
     static func buildChatMessages(
         persona: Persona,
@@ -66,19 +104,7 @@ struct PromptBuilder: Sendable {
             }
         }
 
-        // Build the new user message, optionally with input images on the first turn
-        if let imageDataProvider, history.isEmpty {
-            // Include input images on the first message so the AI can see them
-            var parts: [AIContentPart] = [.text(newUserMessage)]
-            for input in inputs where input.type == .image || input.type == .screenshot {
-                if let (data, mimeType) = imageDataProvider(input) {
-                    parts.append(.imageData(data, mimeType: mimeType))
-                }
-            }
-            messages.append(.user(parts))
-        } else {
-            messages.append(.user(newUserMessage))
-        }
+        messages.append(.user(newUserMessage))
 
         return messages
     }
@@ -186,10 +212,21 @@ struct PromptBuilder: Sendable {
         var prompt = """
         \(persona.systemPrompt)
 
-        You are in interrogation mode — a Q&A conversation to refine the project plan. \
-        The user will ask questions and provide clarifications. Respond helpfully and concisely.
+        You are in INTERROGATION mode. You are the interrogator — YOU ask the questions, \
+        the user answers. Your job is to identify gaps, ambiguities, and missing information \
+        in the project plan, then ask targeted questions to resolve them one at a time.
 
         Persona: \(persona.name)
+
+        ## Rules
+        - Ask ONE focused question per turn (do not ask multiple questions at once)
+        - Base your questions on the uncertainty flags, missing details, and ambiguities \
+        you identify in the inputs and current analysis
+        - When the user answers, acknowledge briefly, then ask the next question
+        - Reference specific inputs by filename when relevant
+        - Keep questions concrete and actionable (e.g. "What is the deadline for milestone 2?" \
+        not "Tell me more about the timeline")
+        - If all major uncertainties are resolved, tell the user they can click Done Refining
         """
 
         if !inputs.isEmpty {
@@ -199,7 +236,10 @@ struct PromptBuilder: Sendable {
         if let analysis = currentAnalysis {
             prompt += "\n\nCurrent clarity score: \(String(format: "%.0f%%", analysis.clarityScore * 100))"
             if !analysis.uncertaintyFlags.isEmpty {
-                prompt += "\nOpen uncertainties: \(analysis.uncertaintyFlags.joined(separator: "; "))"
+                prompt += "\nOpen uncertainties to resolve:\n"
+                for (i, flag) in analysis.uncertaintyFlags.enumerated() {
+                    prompt += "  \(i + 1). \(flag)\n"
+                }
             }
         }
 
