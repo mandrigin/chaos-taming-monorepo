@@ -151,6 +151,7 @@ struct ProjectWorkspaceView: View {
     @State private var audioService = AudioRecordingService()
     @State private var coordinator = AnalysisCoordinator()
     @State private var isInterrogating = false
+    @State private var showingExport = false
 
     var body: some View {
         ZStack {
@@ -177,7 +178,9 @@ struct ProjectWorkspaceView: View {
                             }
 
                             // Main content
-                            if let analysis = document.projectData.currentAnalysis {
+                            if showingExport, document.projectData.currentAnalysis != nil {
+                                TaskPaperPreviewView(document: document)
+                            } else if let analysis = document.projectData.currentAnalysis {
                                 AnalysisResultView(
                                     analysis: analysis,
                                     personaName: document.projectData.persona.name,
@@ -243,6 +246,32 @@ struct ProjectWorkspaceView: View {
                             .background(.quaternary)
                             .clipShape(RoundedRectangle(cornerRadius: 2))
 
+                        if document.projectData.currentAnalysis != nil {
+                            Button {
+                                showingExport.toggle()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: showingExport ? "xmark" : "square.and.arrow.up")
+                                        .font(.system(size: 10))
+                                    Text(showingExport ? "CLOSE" : "EXPORT")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .tracking(1)
+                                }
+                                .foregroundStyle(showingExport ? .white : theme.accent)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(showingExport ? theme.accent.opacity(0.3) : theme.accentDim.opacity(0.3))
+                                }
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .strokeBorder(theme.accent.opacity(0.5), lineWidth: 1)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         Button {
                             withAnimation(.easeInOut(duration: 0.25)) {
                                 isInterrogating.toggle()
@@ -286,6 +315,11 @@ struct ProjectWorkspaceView: View {
         .onReceive(NotificationCenter.default.publisher(for: .enterInterrogation)) { _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 isInterrogating = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .exportTaskPaper)) { _ in
+            if document.projectData.currentAnalysis != nil {
+                showingExport = true
             }
         }
         .onPasteCommand(of: [.image, .png, .tiff, .utf8PlainText]) { providers in
