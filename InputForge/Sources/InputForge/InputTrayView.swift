@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct InputTrayView: View {
     @Bindable var document: InputForgeDocument
     var onAddText: () -> Void
+    var audioService: AudioRecordingService
     @Environment(\.forgeTheme) private var theme
     @State private var selectedInputId: UUID?
     @State private var isDragTargeted = false
@@ -88,6 +89,8 @@ struct InputTrayView: View {
                 }
             }
             .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
+
+            RecordAudioButton(isRecording: audioService.isRecording)
         }
         .padding(.horizontal)
         .padding(.bottom, 8)

@@ -65,6 +65,7 @@ enum InputTypeDetector {
 struct InputDropZone: View {
     @Bindable var document: InputForgeDocument
     var onAddText: () -> Void
+    var audioService: AudioRecordingService
     @Environment(\.forgeTheme) private var theme
     @State private var isDragTargeted = false
 
@@ -87,16 +88,20 @@ struct InputDropZone: View {
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(ForgeColors.textDim)
 
-            Button(action: onAddText) {
-                HStack(spacing: 4) {
-                    Image(systemName: "text.badge.plus")
-                        .font(.system(size: 10))
-                    Text("ADD TEXT")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .tracking(1)
+            HStack(spacing: 12) {
+                Button(action: onAddText) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "text.badge.plus")
+                            .font(.system(size: 10))
+                        Text("ADD TEXT")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(1)
+                    }
                 }
+                .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
+
+                RecordAudioButton(isRecording: audioService.isRecording)
             }
-            .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
             .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -135,5 +140,36 @@ struct InputDropZone: View {
                 }
             }
         }
+    }
+}
+
+/// Toggle button for starting/stopping audio recording.
+/// Posts `.toggleAudioRecording` notification so `ProjectWorkspaceView` handles the lifecycle.
+struct RecordAudioButton: View {
+    let isRecording: Bool
+    @Environment(\.forgeTheme) private var theme
+
+    var body: some View {
+        Button {
+            NotificationCenter.default.post(name: .toggleAudioRecording, object: nil)
+        } label: {
+            HStack(spacing: 4) {
+                if isRecording {
+                    Circle()
+                        .fill(ForgeColors.error)
+                        .frame(width: 8, height: 8)
+                    Text("STOP")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                } else {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 10))
+                    Text("RECORD")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                }
+            }
+        }
+        .buttonStyle(ForgeButtonStyle(variant: isRecording ? .destructive : .secondary, compact: true))
     }
 }

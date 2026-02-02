@@ -195,7 +195,7 @@ struct ProjectWorkspaceView: View {
                                             onReanalyze: { coordinator.runAnalysis(document: document) }
                                         )
                                     } else {
-                                        InputStageView(document: document)
+                                        InputStageView(document: document, audioService: audioService)
                                     }
                                 }
                                 .forgeGlitch(glitchTrigger)
@@ -460,14 +460,15 @@ struct InputSidebarView: View {
 
 struct InputStageView: View {
     @Bindable var document: InputForgeDocument
+    var audioService: AudioRecordingService
     @State private var isAddingText = false
 
     var body: some View {
         Group {
             if document.projectData.inputs.isEmpty {
-                InputDropZone(document: document, onAddText: { isAddingText = true })
+                InputDropZone(document: document, onAddText: { isAddingText = true }, audioService: audioService)
             } else {
-                InputTrayView(document: document, onAddText: { isAddingText = true })
+                InputTrayView(document: document, onAddText: { isAddingText = true }, audioService: audioService)
             }
         }
         .sheet(isPresented: $isAddingText) {
