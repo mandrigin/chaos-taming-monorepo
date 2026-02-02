@@ -37,13 +37,15 @@ struct PromptBuilder: Sendable {
     ///   - newUserMessage: The new message from the user.
     ///   - inputs: The project inputs for context.
     ///   - currentAnalysis: The current analysis result, if any.
+    ///   - imageDataProvider: Optional closure returning image data + mime type for an input.
     /// - Returns: An array of AIMessage for the AI service.
     static func buildChatMessages(
         persona: Persona,
         history: [InterrogationMessage],
         newUserMessage: String,
         inputs: [InputItem],
-        currentAnalysis: AnalysisResult?
+        currentAnalysis: AnalysisResult?,
+        imageDataProvider: ((InputItem) -> (Data, String)?)? = nil
     ) -> [AIMessage] {
         var messages: [AIMessage] = []
 
@@ -64,7 +66,20 @@ struct PromptBuilder: Sendable {
             }
         }
 
-        messages.append(.user(newUserMessage))
+        // Build the new user message, optionally with input images on the first turn
+        if let imageDataProvider, history.isEmpty {
+            // Include input images on the first message so the AI can see them
+            var parts: [AIContentPart] = [.text(newUserMessage)]
+            for input in inputs where input.type == .image || input.type == .screenshot {
+                if let (data, mimeType) = imageDataProvider(input) {
+                    parts.append(.imageData(data, mimeType: mimeType))
+                }
+            }
+            messages.append(.user(parts))
+        } else {
+            messages.append(.user(newUserMessage))
+        }
+
         return messages
     }
 

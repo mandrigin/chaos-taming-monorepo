@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import Foundation
+import PDFKit
 import Vision
 
 /// Processes input assets using system frameworks to extract text, thumbnails,
@@ -162,6 +163,130 @@ enum InputProcessor {
         #endif
     }
 
+    // MARK: - Document Text Extraction
+
+    /// Extract text from a document based on file extension.
+    static func extractTextFromDocument(_ data: Data, filename: String?) -> String? {
+        let ext = filename?.split(separator: ".").last?.lowercased() ?? ""
+
+        switch ext {
+        case "pdf":
+            return extractTextFromPDF(data)
+        case "rtf":
+            return extractTextFromRichText(data, documentType: .rtf)
+        case "doc":
+            return extractTextFromRichText(data, documentType: .docFormat)
+        case "docx":
+            return extractTextFromDocx(data, filename: filename)
+        case "txt", "md", "markdown", "text":
+            return String(data: data, encoding: .utf8)
+        default:
+            return nil
+        }
+    }
+
+    private static func extractTextFromPDF(_ data: Data) -> String? {
+        guard let pdfDoc = PDFDocument(data: data) else { return nil }
+        var text = ""
+        for i in 0..<pdfDoc.pageCount {
+            if let page = pdfDoc.page(at: i), let pageText = page.string {
+                if !text.isEmpty { text += "\n" }
+                text += pageText
+            }
+        }
+        return text.isEmpty ? nil : text
+    }
+
+    private static func extractTextFromRichText(_ data: Data, documentType: NSAttributedString.DocumentType) -> String? {
+        guard let attrString = try? NSAttributedString(
+            data: data,
+            options: [.documentType: documentType],
+            documentAttributes: nil
+        ) else { return nil }
+        let text = attrString.string
+        return text.isEmpty ? nil : text
+    }
+
+    private static func extractTextFromDocx(_ data: Data, filename: String?) -> String? {
+        // NSAttributedString can read DOCX from a file URL on macOS
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFile = tempDir.appendingPathComponent(filename ?? "\(UUID().uuidString).docx")
+        do {
+            try data.write(to: tempFile)
+            defer { try? FileManager.default.removeItem(at: tempFile) }
+
+            let attrString = try NSAttributedString(
+                url: tempFile,
+                options: [:],
+                documentAttributes: nil
+            )
+            let text = attrString.string
+            return text.isEmpty ? nil : text
+        } catch {
+            return nil
+        }
+    }
+
+    // MARK: - Mindmap Extraction
+
+    /// Extract structured text from mindmap/outline files.
+    static func extractTextFromMindmap(_ data: Data, filename: String?) -> String? {
+        let ext = filename?.split(separator: ".").last?.lowercased() ?? ""
+
+        switch ext {
+        case "opml":
+            return extractTextFromOPML(data)
+        case "mm":
+            return extractTextFromFreeMind(data)
+        default:
+            return nil
+        }
+    }
+
+    private static func extractTextFromOPML(_ data: Data) -> String? {
+        guard let xmlDoc = try? XMLDocument(data: data) else { return nil }
+        guard let body = try? xmlDoc.nodes(forXPath: "//body").first else { return nil }
+
+        var lines: [String] = []
+        extractOPMLOutlines(from: body, depth: 0, into: &lines)
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
+    }
+
+    private static func extractOPMLOutlines(from node: XMLNode, depth: Int, into lines: inout [String]) {
+        guard let element = node as? XMLElement else { return }
+        for child in element.children ?? [] {
+            guard let outline = child as? XMLElement, outline.name == "outline" else { continue }
+            let text = outline.attribute(forName: "text")?.stringValue ?? outline.attribute(forName: "_note")?.stringValue ?? ""
+            if !text.isEmpty {
+                let indent = String(repeating: "  ", count: depth)
+                lines.append("\(indent)- \(text)")
+            }
+            extractOPMLOutlines(from: outline, depth: depth + 1, into: &lines)
+        }
+    }
+
+    private static func extractTextFromFreeMind(_ data: Data) -> String? {
+        guard let xmlDoc = try? XMLDocument(data: data) else { return nil }
+        guard let root = try? xmlDoc.nodes(forXPath: "//node").first else { return nil }
+
+        var lines: [String] = []
+        extractFreeMindNodes(from: root, depth: 0, into: &lines)
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
+    }
+
+    private static func extractFreeMindNodes(from node: XMLNode, depth: Int, into lines: inout [String]) {
+        guard let element = node as? XMLElement else { return }
+        let text = element.attribute(forName: "TEXT")?.stringValue ?? ""
+        if !text.isEmpty {
+            let indent = String(repeating: "  ", count: depth)
+            lines.append("\(indent)- \(text)")
+        }
+        for child in element.children ?? [] {
+            guard let childElement = child as? XMLElement, childElement.name == "node" else { continue }
+            extractFreeMindNodes(from: childElement, depth: depth + 1, into: &lines)
+        }
+    }
+
     // MARK: - Batch Processing
 
     /// Process all inputs in a document, extracting text and metadata where possible.
@@ -186,6 +311,14 @@ enum InputProcessor {
                 if let duration = meta.durationSeconds {
                     let desc = "[Video: \(String(format: "%.0f", duration))s — \(input.filename ?? "video")]"
                     document.setExtractedText(desc, forInputId: input.id)
+                }
+            case .document:
+                if let text = extractTextFromDocument(data, filename: input.filename) {
+                    document.setExtractedText(text, forInputId: input.id)
+                }
+            case .mindmap:
+                if let text = extractTextFromMindmap(data, filename: input.filename) {
+                    document.setExtractedText(text, forInputId: input.id)
                 }
             default:
                 break

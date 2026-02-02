@@ -100,8 +100,12 @@ private struct InterrogationContent: View {
                     }
 
                     ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message, theme: theme)
-                            .id(message.id)
+                        MessageBubble(
+                            message: message,
+                            theme: theme,
+                            imageDataProvider: { viewModel.imageData(forInputId: $0) }
+                        )
+                        .id(message.id)
                     }
 
                     if viewModel.isSending {
@@ -374,6 +378,7 @@ private struct InterrogationContent: View {
 private struct MessageBubble: View {
     let message: InterrogationMessage
     let theme: ForgeTheme
+    var imageDataProvider: ((UUID) -> Data?)?
 
     private var isUser: Bool { message.role == .user }
 
@@ -405,33 +410,42 @@ private struct MessageBubble: View {
                     }
                 }
 
-                Text(message.content)
-                    .font(.system(size: 13, design: .monospaced))
-                    .foregroundStyle(
-                        isUser
-                            ? Color(red: 0.85, green: 0.85, blue: 0.85)
-                            : Color(red: 0.75, green: 0.75, blue: 0.75)
-                    )
-                    .lineSpacing(3)
-                    .padding(10)
-                    .background {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(
-                                isUser
-                                    ? Color(red: 0.12, green: 0.12, blue: 0.13)
-                                    : theme.accentDim.opacity(0.15)
-                            )
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(message.content)
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundStyle(
+                            isUser
+                                ? Color(red: 0.85, green: 0.85, blue: 0.85)
+                                : Color(red: 0.75, green: 0.75, blue: 0.75)
+                        )
+                        .lineSpacing(3)
+
+                    // Display referenced images inline
+                    if !message.imageReferences.isEmpty {
+                        ForEach(message.imageReferences) { ref in
+                            inlineImage(for: ref)
+                        }
                     }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 2)
-                            .strokeBorder(
-                                isUser
-                                    ? Color(red: 0.18, green: 0.18, blue: 0.18)
-                                    : theme.accent.opacity(0.2),
-                                lineWidth: 1
-                            )
-                    }
-                    .textSelection(.enabled)
+                }
+                .padding(10)
+                .background {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(
+                            isUser
+                                ? Color(red: 0.12, green: 0.12, blue: 0.13)
+                                : theme.accentDim.opacity(0.15)
+                        )
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 2)
+                        .strokeBorder(
+                            isUser
+                                ? Color(red: 0.18, green: 0.18, blue: 0.18)
+                                : theme.accent.opacity(0.2),
+                            lineWidth: 1
+                        )
+                }
+                .textSelection(.enabled)
 
                 Text(message.timestamp, style: .time)
                     .font(.system(size: 9, design: .monospaced))
@@ -439,6 +453,29 @@ private struct MessageBubble: View {
             }
 
             if !isUser { Spacer(minLength: 60) }
+        }
+    }
+
+    @ViewBuilder
+    private func inlineImage(for ref: ImageReference) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let data = imageDataProvider?(ref.inputId), let nsImage = NSImage(data: data) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: 280, maxHeight: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 2)
+                            .strokeBorder(theme.accent.opacity(0.3), lineWidth: 1)
+                    }
+            }
+
+            if let filename = ref.filename {
+                Text(filename)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(theme.accent.opacity(0.5))
+            }
         }
     }
 }

@@ -38,6 +38,12 @@ final class InterrogationViewModel {
         !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
     }
 
+    /// Returns asset data for a given input ID, used by the view to display inline images.
+    func imageData(forInputId inputId: UUID) -> Data? {
+        guard let input = document.projectData.inputs.first(where: { $0.id == inputId }) else { return nil }
+        return document.assetData(for: input)
+    }
+
     init(document: InputForgeDocument, aiService: (any AIService)? = nil) {
         self.document = document
         self.aiService = aiService ?? Self.resolveAIService(for: document.projectData.context)
@@ -65,17 +71,27 @@ final class InterrogationViewModel {
         document.projectData.modifiedAt = .now
 
         do {
+            let imageDataProvider: ((InputItem) -> (Data, String)?)? = { [weak self] input in
+                guard let self, let data = self.document.assetData(for: input) else { return nil }
+                let mimeType = Self.mimeType(for: input.filename)
+                return (data, mimeType)
+            }
+
             let aiMessages = PromptBuilder.buildChatMessages(
                 persona: document.projectData.persona,
                 history: messages.dropLast().map { $0 }, // history before the new user msg
                 newUserMessage: text,
                 inputs: document.projectData.inputs,
-                currentAnalysis: document.projectData.currentAnalysis
+                currentAnalysis: document.projectData.currentAnalysis,
+                imageDataProvider: imageDataProvider
             )
 
             let response = try await aiService.chat(messages: aiMessages)
 
-            let assistantMsg = InterrogationMessage(role: .assistant, content: response)
+            // Detect image references in the AI response
+            let imageRefs = detectImageReferences(in: response)
+
+            let assistantMsg = InterrogationMessage(role: .assistant, content: response, imageReferences: imageRefs)
             document.projectData.interrogation?.messages.append(assistantMsg)
 
             // Update running summary from conversation
@@ -144,6 +160,42 @@ final class InterrogationViewModel {
             return GeminiAIService(context: context)
         case .foundationModels:
             return FoundationModelsAIService()
+        }
+    }
+
+    // MARK: - Image Reference Detection
+
+    private func detectImageReferences(in response: String) -> [ImageReference] {
+        let lowered = response.lowercased()
+        var refs: [ImageReference] = []
+        var seen = Set<UUID>()
+
+        for input in document.projectData.inputs {
+            guard input.type == .image || input.type == .screenshot else { continue }
+            guard let filename = input.filename else { continue }
+
+            // Check if the AI response mentions this input's filename
+            if lowered.contains(filename.lowercased()) && !seen.contains(input.id) {
+                seen.insert(input.id)
+                refs.append(ImageReference(
+                    inputId: input.id,
+                    filename: filename,
+                    mimeType: Self.mimeType(for: filename)
+                ))
+            }
+        }
+        return refs
+    }
+
+    private static func mimeType(for filename: String?) -> String {
+        let ext = filename?.split(separator: ".").last?.lowercased() ?? ""
+        switch ext {
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "heic": return "image/heic"
+        case "webp": return "image/webp"
+        case "tiff", "tif": return "image/tiff"
+        default: return "image/png"
         }
     }
 
