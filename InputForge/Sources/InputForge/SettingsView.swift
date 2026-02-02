@@ -281,8 +281,9 @@ private struct PersonaEditorSheet: View {
 
 struct AIBackendSettingsView: View {
     @State private var selected: AIBackend = .current
-    @State private var workModel: GeminiModel = .current(for: .work)
-    @State private var personalModel: GeminiModel = .current(for: .personal)
+    @State private var modelStore = GeminiModelStore.shared
+    @State private var workModelID = GeminiModelSelection.selectedModelID(for: .work)
+    @State private var personalModelID = GeminiModelSelection.selectedModelID(for: .personal)
 
     var body: some View {
         Form {
@@ -320,49 +321,91 @@ struct AIBackendSettingsView: View {
 
             if selected == .gemini {
                 Section("Work \u{2014} Gemini Model") {
-                    GeminiModelPicker(selection: $workModel) { model in
-                        GeminiModel.setCurrent(model, for: .work)
+                    DynamicGeminiModelPicker(
+                        selectedID: $workModelID,
+                        models: modelStore.availableModels,
+                        isLoading: modelStore.isLoading
+                    ) { id in
+                        GeminiModelSelection.setSelectedModelID(id, for: .work)
                     }
                 }
 
                 Section("Personal \u{2014} Gemini Model") {
-                    GeminiModelPicker(selection: $personalModel) { model in
-                        GeminiModel.setCurrent(model, for: .personal)
+                    DynamicGeminiModelPicker(
+                        selectedID: $personalModelID,
+                        models: modelStore.availableModels,
+                        isLoading: modelStore.isLoading
+                    ) { id in
+                        GeminiModelSelection.setSelectedModelID(id, for: .personal)
+                    }
+                }
+
+                if let error = modelStore.lastError {
+                    Section {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(ForgeColors.error)
+                            Text(error)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(ForgeColors.error)
+                        }
                     }
                 }
             }
         }
         .formStyle(.grouped)
+        .task {
+            if selected == .gemini {
+                await modelStore.fetchModelsIfNeeded(for: .work)
+            }
+        }
     }
 }
 
-private struct GeminiModelPicker: View {
-    @Binding var selection: GeminiModel
-    var onChange: (GeminiModel) -> Void
+private struct DynamicGeminiModelPicker: View {
+    @Binding var selectedID: String
+    let models: [GeminiModelInfo]
+    let isLoading: Bool
+    var onChange: (String) -> Void
 
     var body: some View {
-        ForEach(GeminiModel.allCases) { model in
-            Button {
-                selection = model
-                onChange(model)
-            } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(model.displayName)
-                            .font(.system(.body, design: .monospaced, weight: .medium))
-                        Text(model.description)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(ForgeColors.textTertiary)
-                    }
-                    Spacer()
-                    if selection == model {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.tint)
-                    }
-                }
-                .contentShape(Rectangle())
+        if isLoading && models.isEmpty {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Loading models\u{2026}")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(ForgeColors.textTertiary)
             }
-            .buttonStyle(.plain)
+        } else if models.isEmpty {
+            Text("No models available. Check your API key.")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(ForgeColors.textMuted)
+        } else {
+            ForEach(models) { model in
+                Button {
+                    selectedID = model.id
+                    onChange(model.id)
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(model.displayName)
+                                .font(.system(.body, design: .monospaced, weight: .medium))
+                            Text(model.description)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(ForgeColors.textTertiary)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                        if selectedID == model.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.tint)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }

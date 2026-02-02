@@ -36,55 +36,81 @@ enum AIBackend: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-// MARK: - Gemini Model Selection
+// MARK: - Gemini Model Info
 
-enum GeminiModel: String, CaseIterable, Identifiable, Sendable {
-    case gemini25Pro = "gemini-2.5-pro-preview-05-06"
-    case gemini20Flash = "gemini-2.0-flash"
-    case gemini20FlashLite = "gemini-2.0-flash-lite"
-    case gemini15Pro = "gemini-1.5-pro"
-    case gemini15Flash = "gemini-1.5-flash"
+struct GeminiModelInfo: Identifiable, Sendable, Hashable {
+    let id: String          // API model name, e.g. "gemini-2.0-flash"
+    let displayName: String
+    let description: String
+}
 
-    var id: String { rawValue }
+// MARK: - Gemini Model Selection Persistence
 
-    /// The model identifier sent to the Gemini API.
-    var apiName: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .gemini25Pro: return "Gemini 2.5 Pro"
-        case .gemini20Flash: return "Gemini 2.0 Flash"
-        case .gemini20FlashLite: return "Gemini 2.0 Flash Lite"
-        case .gemini15Pro: return "Gemini 1.5 Pro"
-        case .gemini15Flash: return "Gemini 1.5 Flash"
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .gemini25Pro: return "Most capable \u{2014} best for complex analysis"
-        case .gemini20Flash: return "Fast and capable \u{2014} good default"
-        case .gemini20FlashLite: return "Fastest \u{2014} lower cost, simpler tasks"
-        case .gemini15Pro: return "Previous generation \u{2014} strong reasoning"
-        case .gemini15Flash: return "Previous generation \u{2014} fast and light"
-        }
-    }
-
-    // MARK: - Per-Context Persistence
+enum GeminiModelSelection {
+    static let defaultModelID = "gemini-2.0-flash"
 
     private static func defaultsKey(for context: ProjectContext) -> String {
         "selectedGeminiModel-\(context.rawValue)"
     }
 
-    static func current(for context: ProjectContext) -> GeminiModel {
-        guard let raw = UserDefaults.standard.string(forKey: defaultsKey(for: context)),
-              let model = GeminiModel(rawValue: raw) else {
-            return .gemini20Flash
-        }
-        return model
+    static func selectedModelID(for context: ProjectContext) -> String {
+        UserDefaults.standard.string(forKey: defaultsKey(for: context)) ?? defaultModelID
     }
 
-    static func setCurrent(_ model: GeminiModel, for context: ProjectContext) {
-        UserDefaults.standard.set(model.rawValue, forKey: defaultsKey(for: context))
+    static func setSelectedModelID(_ id: String, for context: ProjectContext) {
+        UserDefaults.standard.set(id, forKey: defaultsKey(for: context))
+    }
+}
+
+// MARK: - Gemini Model Store (dynamic fetching)
+
+@Observable
+@MainActor
+final class GeminiModelStore {
+    static let shared = GeminiModelStore()
+
+    private(set) var availableModels: [GeminiModelInfo] = []
+    private(set) var isLoading = false
+    private(set) var lastError: String?
+    private var lastFetchDate: Date?
+
+    private static let cacheLifetime: TimeInterval = 300
+
+    private init() {}
+
+    var needsFetch: Bool {
+        if availableModels.isEmpty { return true }
+        guard let lastFetch = lastFetchDate else { return true }
+        return Date().timeIntervalSince(lastFetch) > Self.cacheLifetime
+    }
+
+    func fetchModelsIfNeeded(for context: ProjectContext) async {
+        guard needsFetch, !isLoading else { return }
+        await fetchModels(for: context)
+    }
+
+    func fetchModels(for context: ProjectContext) async {
+        guard let apiKey = KeychainService.retrieveAPIKey(for: context) else {
+            lastError = "No API key for \(context.displayName)"
+            return
+        }
+
+        isLoading = true
+        lastError = nil
+
+        do {
+            availableModels = try await GeminiAIService.listModels(apiKey: apiKey)
+            lastFetchDate = Date()
+        } catch {
+            lastError = error.localizedDescription
+        }
+
+        isLoading = false
+    }
+
+    func selectedModel(for context: ProjectContext) -> GeminiModelInfo {
+        let id = GeminiModelSelection.selectedModelID(for: context)
+        return availableModels.first { $0.id == id }
+            ?? GeminiModelInfo(id: id, displayName: id, description: "")
     }
 }

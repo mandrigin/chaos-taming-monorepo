@@ -45,6 +45,34 @@ final class GeminiAIService: AIService, @unchecked Sendable {
         try await sendRequest(messages: messages)
     }
 
+    // MARK: - Model Discovery
+
+    static func listModels(apiKey: String) async throws -> [GeminiModelInfo] {
+        let url = URL(string: "https://generativelanguage.googleapis.com/v1/models?key=\(apiKey)")!
+        let (data, response) = try await URLSession.shared.data(from: url)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw AIServiceError.invalidResponse(detail: "Failed to fetch model list")
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [[String: Any]] else {
+            throw AIServiceError.invalidResponse(detail: "Invalid models response format")
+        }
+
+        return models.compactMap { entry -> GeminiModelInfo? in
+            guard let name = entry["name"] as? String,
+                  let displayName = entry["displayName"] as? String,
+                  let methods = entry["supportedGenerationMethods"] as? [String],
+                  methods.contains("generateContent") else {
+                return nil
+            }
+            let id = name.hasPrefix("models/") ? String(name.dropFirst(7)) : name
+            let description = entry["description"] as? String ?? ""
+            return GeminiModelInfo(id: id, displayName: displayName, description: description)
+        }
+    }
+
     // MARK: - Private
 
     private func sendRequest(messages: [AIMessage]) async throws -> String {
