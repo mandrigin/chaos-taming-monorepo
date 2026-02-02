@@ -126,7 +126,7 @@ struct PersonasSettingsView: View {
             List {
                 Section("Built-in") {
                     ForEach(Persona.builtIn) { persona in
-                        PersonaRow(persona: persona, isBuiltIn: true)
+                        SettingsPersonaRow(persona: persona, isBuiltIn: true)
                     }
                 }
 
@@ -137,7 +137,7 @@ struct PersonasSettingsView: View {
                             .foregroundStyle(ForgeColors.textMuted)
                     } else {
                         ForEach(store.customPersonas) { persona in
-                            PersonaRow(persona: persona, isBuiltIn: false)
+                            SettingsPersonaRow(persona: persona, isBuiltIn: false)
                                 .contextMenu {
                                     Button("Edit") { sheetState = .edit(persona) }
                                     Divider()
@@ -189,9 +189,15 @@ private enum PersonaSheetState: Identifiable {
     }
 }
 
-private struct PersonaRow: View {
+private struct SettingsPersonaRow: View {
     let persona: Persona
     let isBuiltIn: Bool
+
+    private var displayPrompt: String {
+        persona.isNeutral
+            ? "No flavor — just a competent project planning assistant"
+            : persona.systemPrompt
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -207,7 +213,7 @@ private struct PersonaRow: View {
                         .clipShape(Capsule())
                 }
             }
-            Text(persona.systemPrompt)
+            Text(displayPrompt)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(ForgeColors.textTertiary)
                 .lineLimit(2)

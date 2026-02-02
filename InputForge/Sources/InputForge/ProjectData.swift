@@ -18,7 +18,7 @@ struct ProjectData: Codable {
         context: ProjectContext = .work,
         createdAt: Date = .now,
         modifiedAt: Date = .now,
-        persona: Persona = Persona.builtIn[0],
+        persona: Persona = .neutral,
         inputs: [InputItem] = [],
         currentAnalysis: AnalysisResult? = nil,
         interrogation: InterrogationState? = nil
