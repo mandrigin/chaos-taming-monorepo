@@ -88,6 +88,16 @@ final class InputForgeDocument: ReferenceFileDocument, @unchecked Sendable {
             }
         }
         self.versions = loadedVersions.sorted { $0.versionNumber < $1.versionNumber }
+
+        // Populate asset data cache for thumbnail generation
+        if let assetsDir = wrapper[Self.assetsDirname],
+           let assetFiles = assetsDir.fileWrappers {
+            for (name, aWrapper) in assetFiles {
+                if let data = aWrapper.regularFileContents {
+                    self.assetDataCache[name] = data
+                }
+            }
+        }
     }
 
     func snapshot(contentType: UTType) throws -> DocumentSnapshot {
@@ -145,6 +155,16 @@ final class InputForgeDocument: ReferenceFileDocument, @unchecked Sendable {
     /// Assets queued for writing on next save. Keyed by asset filename.
     private var pendingAssets: [String: Data] = [:]
 
+    /// Cache of asset data for thumbnail generation and framework processing.
+    private var assetDataCache: [String: Data] = [:]
+
+    /// Retrieve asset data for an input item from cache or pending assets.
+    func assetData(for input: InputItem) -> Data? {
+        guard let path = input.assetPath else { return nil }
+        if let data = pendingAssets[path] { return data }
+        return assetDataCache[path]
+    }
+
     // MARK: - Mutations
 
     func addInput(_ item: InputItem) {
@@ -155,12 +175,19 @@ final class InputForgeDocument: ReferenceFileDocument, @unchecked Sendable {
     func addInput(_ item: InputItem, assetData: Data) {
         if let assetPath = item.assetPath {
             pendingAssets[assetPath] = assetData
+            assetDataCache[assetPath] = assetData
         }
         addInput(item)
     }
 
     func removeInput(id: UUID) {
         projectData.inputs.removeAll { $0.id == id }
+        projectData.modifiedAt = .now
+    }
+
+    func setExtractedText(_ text: String, forInputId inputId: UUID) {
+        guard let idx = projectData.inputs.firstIndex(where: { $0.id == inputId }) else { return }
+        projectData.inputs[idx].extractedText = text
         projectData.modifiedAt = .now
     }
 

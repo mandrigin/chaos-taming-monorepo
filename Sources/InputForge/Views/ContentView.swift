@@ -5,6 +5,10 @@ struct ContentView: View {
     @Bindable var document: InputForgeDocument
 
     @State private var showingExport = false
+    @State private var isInterrogating = false
+    @State private var showPersonaPicker = false
+    @State private var showVersionHistory = false
+    @State private var isRecordingAudio = false
 
     private var theme: ForgeTheme {
         document.hasChosenContext
@@ -24,6 +28,8 @@ struct ContentView: View {
 
             if showingExport, document.projectData.currentAnalysis != nil {
                 TaskPaperPreviewView(document: document)
+            } else if !document.projectData.inputs.isEmpty {
+                InputTrayView(document: document)
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "hammer.fill")
@@ -87,10 +93,149 @@ struct ContentView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .runAnalysis)) { _ in
+            // Analysis trigger — handled when analysis pipeline is connected
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .enterInterrogation)) { _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isInterrogating = true
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .exportTaskPaper)) { _ in
             if document.projectData.currentAnalysis != nil {
                 showingExport = true
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleAudioRecording)) { _ in
+            isRecordingAudio.toggle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .switchPersona)) { _ in
+            showPersonaPicker = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showVersionHistory)) { _ in
+            showVersionHistory = true
+        }
+        .sheet(isPresented: $showPersonaPicker) {
+            PersonaPickerSheet(document: document)
+        }
+        .sheet(isPresented: $showVersionHistory) {
+            VersionHistorySheet(document: document)
+        }
+    }
+}
+
+// MARK: - Persona Picker Sheet
+
+struct PersonaPickerSheet: View {
+    @Bindable var document: InputForgeDocument
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.forgeTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("SWITCH PERSONA")
+                    .font(.system(.headline, design: .monospaced, weight: .bold))
+                    .tracking(2)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.escape, modifiers: [])
+            }
+            .padding()
+
+            Divider()
+
+            List {
+                ForEach(Persona.builtIn) { persona in
+                    Button {
+                        document.setPersona(persona)
+                        dismiss()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(persona.name)
+                                    .font(.system(.body, design: .monospaced, weight: .semibold))
+                                    .foregroundStyle(ForgeColors.textPrimary)
+                                Text(persona.systemPrompt)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(ForgeColors.textTertiary)
+                                    .lineLimit(2)
+                            }
+                            Spacer()
+                            if document.projectData.persona.id == persona.id {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(theme.accent)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(width: 480, height: 400)
+    }
+}
+
+// MARK: - Version History Sheet
+
+struct VersionHistorySheet: View {
+    @Bindable var document: InputForgeDocument
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.forgeTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("VERSION HISTORY")
+                    .font(.system(.headline, design: .monospaced, weight: .bold))
+                    .tracking(2)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.escape, modifiers: [])
+            }
+            .padding()
+
+            Divider()
+
+            if document.versions.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 32))
+                        .foregroundStyle(ForgeColors.textTertiary)
+                    Text("No versions yet")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(ForgeColors.textMuted)
+                    Text("Run an analysis to create the first version")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(ForgeColors.textDim)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(document.versions.reversed()) { version in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Version \(version.versionNumber)")
+                                    .font(.system(.body, design: .monospaced, weight: .semibold))
+                                    .foregroundStyle(ForgeColors.textPrimary)
+                                Text(version.personaName)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(ForgeColors.textTertiary)
+                            }
+                            Spacer()
+                            Text("\(Int(version.clarityScore * 100))%")
+                                .font(.system(.caption, design: .monospaced, weight: .medium))
+                                .foregroundStyle(theme.accent)
+                            Button("Restore") {
+                                document.restoreVersion(version)
+                                dismiss()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .frame(width: 500, height: 400)
     }
 }
