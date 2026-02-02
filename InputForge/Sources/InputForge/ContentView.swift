@@ -148,16 +148,29 @@ struct ContextCard: View {
 struct ProjectWorkspaceView: View {
     @Bindable var document: InputForgeDocument
     @Environment(\.forgeTheme) private var theme
+    @State private var isInterrogating = false
 
     var body: some View {
-        NavigationSplitView {
-            InputSidebarView(document: document)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-        } detail: {
-            if document.projectData.currentAnalysis != nil {
-                AnalysisPreviewPlaceholder()
+        Group {
+            if isInterrogating {
+                InterrogationView(document: document) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isInterrogating = false
+                    }
+                }
+                .transition(.opacity)
             } else {
-                InputStageView(document: document)
+                NavigationSplitView {
+                    InputSidebarView(document: document)
+                        .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+                } detail: {
+                    if document.projectData.currentAnalysis != nil {
+                        AnalysisPreviewPlaceholder()
+                    } else {
+                        InputStageView(document: document)
+                    }
+                }
+                .transition(.opacity)
             }
         }
         .toolbar {
@@ -185,7 +198,25 @@ struct ProjectWorkspaceView: View {
                         .padding(.vertical, 4)
                         .background(.quaternary)
                         .clipShape(RoundedRectangle(cornerRadius: 2))
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            isInterrogating.toggle()
+                        }
+                    } label: {
+                        Image(systemName: isInterrogating
+                            ? "bubble.left.and.bubble.right.fill"
+                            : "bubble.left.and.bubble.right")
+                            .font(.system(size: 12))
+                            .foregroundStyle(isInterrogating ? theme.accent : .secondary)
+                    }
+                    .help(isInterrogating ? "Exit Interrogation" : "Enter Interrogation Mode")
                 }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .enterInterrogation)) { _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isInterrogating = true
             }
         }
     }
