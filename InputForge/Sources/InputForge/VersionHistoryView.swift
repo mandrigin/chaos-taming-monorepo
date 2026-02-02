@@ -500,7 +500,7 @@ struct VersionDetailView: View {
                             .tracking(2)
                             .foregroundStyle(.secondary)
 
-                        TagFlowLayout(spacing: 6) {
+                        VersionTagFlowLayout(spacing: 6) {
                             ForEach(version.uncertaintyFlags, id: \.self) { flag in
                                 Text(flag)
                                     .font(.system(size: 10, design: .monospaced))
@@ -771,7 +771,7 @@ struct VersionDiffView: View {
                     .tracking(2)
                     .foregroundStyle(.tertiary)
 
-                TagFlowLayout(spacing: 6) {
+                VersionTagFlowLayout(spacing: 6) {
                     ForEach(Array(keptFlags).sorted(), id: \.self) { flag in
                         DiffTagView(text: flag, status: .unchanged)
                     }
@@ -1127,7 +1127,7 @@ struct TaskDiffRow: View {
 
 // MARK: - Tag Flow Layout
 
-struct TagFlowLayout: Layout {
+private struct VersionTagFlowLayout: Layout {
     var spacing: CGFloat = 6
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
