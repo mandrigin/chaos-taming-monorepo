@@ -58,6 +58,9 @@ enum AnalysisPromptBuilder {
             } else if let path = input.assetPath {
                 prompt += "[File: \(path)]\n"
             }
+            if let extracted = input.extractedText {
+                prompt += "Extracted content: \(extracted)\n"
+            }
 
             if !input.annotations.isEmpty {
                 prompt += "Annotations:\n"

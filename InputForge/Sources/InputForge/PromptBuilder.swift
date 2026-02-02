@@ -225,6 +225,13 @@ struct PromptBuilder: Sendable {
                     desc += "... (truncated)"
                 }
             }
+            if let extracted = input.extractedText {
+                let truncated = extracted.prefix(2000)
+                desc += "\n   Extracted content: \(truncated)"
+                if extracted.count > 2000 {
+                    desc += "... (truncated)"
+                }
+            }
             if !input.annotations.isEmpty {
                 let notes = input.annotations.map { "   - \($0.text)" }.joined(separator: "\n")
                 desc += "\n   Annotations:\n\(notes)"

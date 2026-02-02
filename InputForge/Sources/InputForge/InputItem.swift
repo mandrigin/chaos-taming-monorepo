@@ -36,6 +36,8 @@ struct InputItem: Codable, Identifiable {
     var assetPath: String?
     /// Inline text content (for .text type inputs).
     var textContent: String?
+    /// Text extracted by framework integration (Vision OCR, Speech transcription, etc.).
+    var extractedText: String?
     var annotations: [InputAnnotation]
     var addedAt: Date
 
@@ -45,6 +47,7 @@ struct InputItem: Codable, Identifiable {
         filename: String? = nil,
         assetPath: String? = nil,
         textContent: String? = nil,
+        extractedText: String? = nil,
         annotations: [InputAnnotation] = [],
         addedAt: Date = .now
     ) {
@@ -53,6 +56,7 @@ struct InputItem: Codable, Identifiable {
         self.filename = filename
         self.assetPath = assetPath
         self.textContent = textContent
+        self.extractedText = extractedText
         self.annotations = annotations
         self.addedAt = addedAt
     }
