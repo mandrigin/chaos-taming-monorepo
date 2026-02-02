@@ -19,7 +19,9 @@ struct InterrogationView: View {
         }
         .task {
             if viewModel == nil {
-                viewModel = InterrogationViewModel(document: document)
+                let vm = InterrogationViewModel(document: document)
+                viewModel = vm
+                await vm.startInterrogation()
             }
         }
     }
@@ -108,7 +110,7 @@ private struct InterrogationContent: View {
                         .id(message.id)
                     }
 
-                    if viewModel.isSending {
+                    if viewModel.isSending || viewModel.isStarting {
                         typingIndicator
                     }
                 }
@@ -126,16 +128,15 @@ private struct InterrogationContent: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "questionmark.bubble")
-                .font(.system(size: 28))
-                .foregroundStyle(theme.accent.opacity(0.3))
+            ProgressView()
+                .controlSize(.regular)
 
-            Text("ASK QUESTIONS TO REFINE YOUR PLAN")
+            Text("ANALYZING INPUTS")
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .tracking(2)
                 .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
 
-            Text("The AI will reference your inputs and current analysis")
+            Text("The AI is reviewing your project to identify gaps")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
         }
@@ -164,7 +165,7 @@ private struct InterrogationContent: View {
 
     private var chatInputBar: some View {
         HStack(spacing: 10) {
-            TextField("Ask a question...", text: $viewModel.userInput, axis: .vertical)
+            TextField("Your answer...", text: $viewModel.userInput, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(.system(.body, design: .monospaced))
                 .lineLimit(1...4)

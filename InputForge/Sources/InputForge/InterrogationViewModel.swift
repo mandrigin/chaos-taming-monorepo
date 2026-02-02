@@ -34,8 +34,10 @@ final class InterrogationViewModel {
         document.projectData.persona.name
     }
 
+    var isStarting: Bool = false
+
     var canSend: Bool {
-        !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
+        !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending && !isStarting
     }
 
     /// Returns asset data for a given input ID, used by the view to display inline images.
@@ -57,18 +59,11 @@ final class InterrogationViewModel {
 
     // MARK: - Actions
 
-    func sendMessage() async {
-        let text = userInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isSending else { return }
-
-        userInput = ""
+    /// Called when the interrogation view appears. The AI analyzes inputs and asks its first question.
+    func startInterrogation() async {
+        guard messages.isEmpty, !isStarting else { return }
+        isStarting = true
         error = nil
-        isSending = true
-
-        // Append user message
-        let userMsg = InterrogationMessage(role: .user, content: text)
-        document.projectData.interrogation?.messages.append(userMsg)
-        document.projectData.modifiedAt = .now
 
         do {
             let imageDataProvider: ((InputItem) -> (Data, String)?)? = { [weak self] input in
@@ -77,13 +72,49 @@ final class InterrogationViewModel {
                 return (data, mimeType)
             }
 
+            let aiMessages = PromptBuilder.buildInterrogationStartMessages(
+                persona: document.projectData.persona,
+                inputs: document.projectData.inputs,
+                currentAnalysis: document.projectData.currentAnalysis,
+                imageDataProvider: imageDataProvider
+            )
+
+            let response = try await aiService.chat(messages: aiMessages)
+            let imageRefs = detectImageReferences(in: response)
+
+            let assistantMsg = InterrogationMessage(role: .assistant, content: response, imageReferences: imageRefs)
+            document.projectData.interrogation?.messages.append(assistantMsg)
+            document.projectData.modifiedAt = .now
+        } catch is CancellationError {
+            // Silent
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        isStarting = false
+    }
+
+    /// User sends an answer; the AI processes it and asks the next question.
+    func sendMessage() async {
+        let text = userInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isSending else { return }
+
+        userInput = ""
+        error = nil
+        isSending = true
+
+        // Append user answer
+        let userMsg = InterrogationMessage(role: .user, content: text)
+        document.projectData.interrogation?.messages.append(userMsg)
+        document.projectData.modifiedAt = .now
+
+        do {
             let aiMessages = PromptBuilder.buildChatMessages(
                 persona: document.projectData.persona,
                 history: messages.dropLast().map { $0 }, // history before the new user msg
                 newUserMessage: text,
                 inputs: document.projectData.inputs,
-                currentAnalysis: document.projectData.currentAnalysis,
-                imageDataProvider: imageDataProvider
+                currentAnalysis: document.projectData.currentAnalysis
             )
 
             let response = try await aiService.chat(messages: aiMessages)
