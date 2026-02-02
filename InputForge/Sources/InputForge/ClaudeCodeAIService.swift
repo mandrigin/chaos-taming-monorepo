@@ -18,14 +18,14 @@ final class ClaudeCodeAIService: AIService, @unchecked Sendable {
     }
 
     func analyze(messages: [AIMessage]) async throws -> String {
-        guard AIBackend.isClaudeCodeAvailable else {
+        guard AIBackend.claudeCodePath != nil else {
             throw AIServiceError.modelUnavailable
         }
         throw AIServiceError.modelUnavailable
     }
 
     func chat(messages: [AIMessage]) async throws -> String {
-        guard AIBackend.isClaudeCodeAvailable else {
+        guard AIBackend.claudeCodePath != nil else {
             throw AIServiceError.modelUnavailable
         }
         throw AIServiceError.modelUnavailable

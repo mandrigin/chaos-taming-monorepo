@@ -71,29 +71,40 @@ enum AIBackend: String, Codable, CaseIterable, Identifiable, Sendable {
 
     // MARK: - Claude Code Detection
 
-    static var isClaudeCodeAvailable: Bool {
+    static var claudeCodePath: String? {
         let paths = [
             "/usr/local/bin/claude",
             "/opt/homebrew/bin/claude",
+            NSHomeDirectory() + "/.local/bin/claude",
         ]
         for path in paths {
             if FileManager.default.isExecutableFile(atPath: path) {
-                return true
+                return path
             }
         }
         // Fall back to PATH lookup
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
         process.arguments = ["claude"]
-        process.standardOutput = Pipe()
+        let pipe = Pipe()
+        process.standardOutput = pipe
         process.standardError = Pipe()
         do {
             try process.run()
             process.waitUntilExit()
-            return process.terminationStatus == 0
-        } catch {
-            return false
-        }
+            if process.terminationStatus == 0 {
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let resolved = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !resolved.isEmpty {
+                    return resolved
+                }
+            }
+        } catch {}
+        return nil
+    }
+
+    static var isClaudeCodeAvailable: Bool {
+        claudeCodePath != nil
     }
 }
 
