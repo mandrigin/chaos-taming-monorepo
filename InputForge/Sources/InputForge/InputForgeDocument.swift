@@ -91,10 +91,12 @@ final class InputForgeDocument: ReferenceFileDocument, @unchecked Sendable {
     }
 
     func snapshot(contentType: UTType) throws -> DocumentSnapshot {
-        DocumentSnapshot(
+        let assets = pendingAssets
+        pendingAssets.removeAll()
+        return DocumentSnapshot(
             projectData: projectData,
             versions: versions,
-            assetFiles: [:]
+            assetFiles: assets
         )
     }
 
@@ -138,11 +140,23 @@ final class InputForgeDocument: ReferenceFileDocument, @unchecked Sendable {
         return root
     }
 
+    // MARK: - Asset staging
+
+    /// Assets queued for writing on next save. Keyed by asset filename.
+    private var pendingAssets: [String: Data] = [:]
+
     // MARK: - Mutations
 
     func addInput(_ item: InputItem) {
         projectData.inputs.append(item)
         projectData.modifiedAt = .now
+    }
+
+    func addInput(_ item: InputItem, assetData: Data) {
+        if let assetPath = item.assetPath {
+            pendingAssets[assetPath] = assetData
+        }
+        addInput(item)
     }
 
     func removeInput(id: UUID) {

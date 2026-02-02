@@ -148,16 +148,42 @@ struct ContextCard: View {
 struct ProjectWorkspaceView: View {
     @Bindable var document: InputForgeDocument
     @Environment(\.forgeTheme) private var theme
+    @State private var audioService = AudioRecordingService()
 
     var body: some View {
-        NavigationSplitView {
-            InputSidebarView(document: document)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-        } detail: {
-            if document.projectData.currentAnalysis != nil {
-                AnalysisPreviewPlaceholder()
+        VStack(spacing: 0) {
+            NavigationSplitView {
+                InputSidebarView(document: document)
+                    .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+            } detail: {
+                if document.projectData.currentAnalysis != nil {
+                    AnalysisPreviewPlaceholder()
+                } else {
+                    InputStageView(document: document)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    Text(document.projectData.persona.name)
+                        .font(.system(.caption, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.quaternary)
+                        .clipShape(Capsule())
+                }
+            }
+
+            if audioService.isRecording {
+                AudioRecordingBar(duration: audioService.recordingDuration) {
+                    finishRecording()
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleAudioRecording)) { _ in
+            if audioService.isRecording {
+                finishRecording()
             } else {
-                InputStageView(document: document)
+                _ = audioService.toggle()
             }
         }
         .toolbar {
@@ -188,6 +214,30 @@ struct ProjectWorkspaceView: View {
                 }
             }
         }
+        .onPasteCommand(of: [.image, .png, .tiff, .utf8PlainText]) { providers in
+            if let result = ClipboardHandler.importFromClipboard() {
+                if let data = result.1 {
+                    document.addInput(result.0, assetData: data)
+                } else {
+                    document.addInput(result.0)
+                }
+            }
+        }
+    }
+
+    private func finishRecording() {
+        guard let url = audioService.toggle() else { return }
+        guard let data = try? Data(contentsOf: url) else { return }
+
+        let filename = url.lastPathComponent
+        let item = InputItem(
+            type: .audio,
+            filename: filename,
+            assetPath: filename
+        )
+        document.addInput(item, assetData: data)
+
+        try? FileManager.default.removeItem(at: url)
     }
 }
 
@@ -199,11 +249,35 @@ struct InputSidebarView: View {
         List {
             Section {
                 ForEach(document.projectData.inputs) { input in
-                    Label(
-                        input.filename ?? input.type.rawValue,
-                        systemImage: iconName(for: input.type)
-                    )
-                    .font(.system(.body, design: .monospaced))
+                    HStack {
+                        Label(
+                            input.filename ?? input.type.rawValue,
+                            systemImage: iconName(for: input.type)
+                        )
+                        .font(.system(.body, design: .monospaced))
+                        .lineLimit(1)
+
+                        Spacer()
+
+                        if !input.annotations.isEmpty {
+                            Text("\(input.annotations.count)")
+                                .font(.system(.caption2, design: .monospaced))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(.quaternary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .onDelete { offsets in
+                    let ids = offsets.map { document.projectData.inputs[$0].id }
+                    for id in ids {
+                        document.removeInput(id: id)
+                    }
+                }
+                .onMove { from, to in
+                    document.projectData.inputs.move(fromOffsets: from, toOffset: to)
+                    document.projectData.modifiedAt = .now
                 }
             } header: {
                 Text("INPUTS (\(document.projectData.inputs.count))")
@@ -234,27 +308,10 @@ struct InputStageView: View {
     @Environment(\.forgeTheme) private var theme
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "arrow.down.doc")
-                .font(.system(size: 32))
-                .foregroundStyle(theme.accent.opacity(0.5))
-            Text("DROP INPUTS HERE")
-                .font(.system(.title3, design: .monospaced, weight: .bold))
-                .tracking(2)
-                .foregroundStyle(.secondary)
-            Text("Screenshots, documents, audio, video, mindmaps, text")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            RoundedRectangle(cornerRadius: 2)
-                .strokeBorder(
-                    style: StrokeStyle(lineWidth: 2, dash: [10, 5]),
-                    antialiased: true
-                )
-                .foregroundStyle(theme.accent.opacity(0.2))
-                .padding()
+        if document.projectData.inputs.isEmpty {
+            InputDropZone(document: document)
+        } else {
+            InputTrayView(document: document)
         }
     }
 }
