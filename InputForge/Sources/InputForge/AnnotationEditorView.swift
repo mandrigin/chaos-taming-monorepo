@@ -8,6 +8,7 @@ struct AnnotationEditorView: View {
     @State private var editingAnnotationId: UUID?
     @State private var editText = ""
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.forgeTheme) private var theme
 
     private var input: InputItem? {
         document.projectData.inputs.first { $0.id == inputId }
@@ -21,20 +22,23 @@ struct AnnotationEditorView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Annotations")
-                    .font(.system(.headline, design: .monospaced))
+                Text("ANNOTATIONS")
+                    .font(.system(.headline, design: .monospaced, weight: .bold))
+                    .tracking(2)
                 if let input {
                     Text("— \(input.filename ?? input.type.rawValue)")
                         .font(.system(.subheadline, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ForgeColors.textTertiary)
                 }
                 Spacer()
                 Button("Done") { dismiss() }
+                    .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
                     .keyboardShortcut(.escape, modifiers: [])
             }
             .padding()
 
             Divider()
+                .overlay(ForgeColors.border)
 
             // Annotation list
             if let input, !input.annotations.isEmpty {
@@ -52,11 +56,13 @@ struct AnnotationEditorView: View {
                     Label("No Annotations", systemImage: "note.text")
                 } description: {
                     Text("Add a sticky note to this input.")
+                        .font(.system(.caption, design: .monospaced))
                 }
                 .frame(maxHeight: .infinity)
             }
 
             Divider()
+                .overlay(ForgeColors.border)
 
             // Add new annotation
             HStack {
@@ -68,6 +74,11 @@ struct AnnotationEditorView: View {
                 Button(action: addAnnotation) {
                     Image(systemName: "plus.circle.fill")
                         .font(.title3)
+                        .foregroundStyle(
+                            newAnnotationText.trimmingCharacters(in: .whitespaces).isEmpty
+                                ? ForgeColors.textMuted
+                                : theme.accent
+                        )
                 }
                 .disabled(newAnnotationText.trimmingCharacters(in: .whitespaces).isEmpty)
                 .buttonStyle(.plain)
@@ -87,9 +98,9 @@ struct AnnotationEditorView: View {
                     .onSubmit { saveEdit(for: annotation.id) }
 
                 Button("Save") { saveEdit(for: annotation.id) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ForgeButtonStyle(compact: true))
                 Button("Cancel") { editingAnnotationId = nil }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
             }
         } else {
             VStack(alignment: .leading, spacing: 4) {
@@ -97,7 +108,7 @@ struct AnnotationEditorView: View {
                     .font(.system(.body, design: .monospaced))
                 Text(annotation.createdAt, style: .relative)
                     .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(ForgeColors.textMuted)
             }
             .contentShape(Rectangle())
             .onTapGesture(count: 2) {

@@ -64,26 +64,27 @@ enum InputTypeDetector {
 /// The main drop zone view that accepts files and shows drag feedback.
 struct InputDropZone: View {
     @Bindable var document: InputForgeDocument
+    @Environment(\.forgeTheme) private var theme
     @State private var isDragTargeted = false
 
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: isDragTargeted ? "arrow.down.doc.fill" : "arrow.down.doc")
                 .font(.system(size: 48))
-                .foregroundStyle(isDragTargeted ? .primary : .secondary)
+                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.textTertiary)
                 .symbolEffect(.bounce, value: isDragTargeted)
 
             Text(isDragTargeted ? "Release to add" : "Drop inputs here")
                 .font(.system(.title, design: .monospaced))
-                .foregroundStyle(isDragTargeted ? .primary : .secondary)
+                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.textTertiary)
 
             Text("Documents, images, audio, video, mindmaps")
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(ForgeColors.textMuted)
 
-            Text("Or paste from clipboard with ⌘V")
+            Text("Or paste from clipboard with \u{2318}V")
                 .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.quaternary)
+                .foregroundStyle(ForgeColors.textDim)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
@@ -91,7 +92,7 @@ struct InputDropZone: View {
                 .strokeBorder(
                     style: StrokeStyle(lineWidth: isDragTargeted ? 3 : 2, dash: [8, 4])
                 )
-                .foregroundStyle(isDragTargeted ? .primary : .quaternary)
+                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.border)
                 .padding()
         }
         .onDrop(of: InputTypeDetector.acceptedTypes, isTargeted: $isDragTargeted) { providers in

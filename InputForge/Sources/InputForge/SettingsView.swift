@@ -14,6 +14,7 @@ struct SettingsView: View {
             }
         }
         .frame(width: 520, height: 420)
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -24,13 +25,14 @@ struct APIKeysSettingsView: View {
     @State private var personalKey = ""
     @State private var workKeyStored = false
     @State private var personalKeyStored = false
+    @State private var errorMessage: String?
 
     var body: some View {
         Form {
             Section {
                 Text("API keys are stored in the macOS Keychain. They are never saved in project files.")
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ForgeColors.textTertiary)
             }
 
             Section("Work \u{2014} Gemini API Key") {
@@ -39,14 +41,16 @@ struct APIKeysSettingsView: View {
                         .font(.system(.body, design: .monospaced))
                     if workKeyStored {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(ForgeColors.success)
                             .help("Key stored in Keychain")
                     }
                 }
                 HStack(spacing: 8) {
                     Button("Save") { saveKey(.work) }
+                        .buttonStyle(ForgeButtonStyle(compact: true))
                         .disabled(workKey.isEmpty)
-                    Button("Clear", role: .destructive) { clearKey(.work) }
+                    Button("Clear") { clearKey(.work) }
+                        .buttonStyle(ForgeButtonStyle(variant: .destructive, compact: true))
                         .disabled(!workKeyStored)
                 }
             }
@@ -57,15 +61,29 @@ struct APIKeysSettingsView: View {
                         .font(.system(.body, design: .monospaced))
                     if personalKeyStored {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(ForgeColors.success)
                             .help("Key stored in Keychain")
                     }
                 }
                 HStack(spacing: 8) {
                     Button("Save") { saveKey(.personal) }
+                        .buttonStyle(ForgeButtonStyle(compact: true))
                         .disabled(personalKey.isEmpty)
-                    Button("Clear", role: .destructive) { clearKey(.personal) }
+                    Button("Clear") { clearKey(.personal) }
+                        .buttonStyle(ForgeButtonStyle(variant: .destructive, compact: true))
                         .disabled(!personalKeyStored)
+                }
+            }
+
+            if let error = errorMessage {
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(ForgeColors.error)
+                        Text(error)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(ForgeColors.error)
+                    }
                 }
             }
         }
@@ -75,13 +93,19 @@ struct APIKeysSettingsView: View {
 
     private func saveKey(_ context: ProjectContext) {
         let key = context == .work ? workKey : personalKey
-        try? KeychainService.save(apiKey: key, for: context)
-        if context == .work { workKey = "" } else { personalKey = "" }
+        do {
+            try KeychainService.save(apiKey: key, for: context)
+            if context == .work { workKey = "" } else { personalKey = "" }
+            errorMessage = nil
+        } catch {
+            errorMessage = "Failed to save API key: \(error.localizedDescription)"
+        }
         refreshStatus()
     }
 
     private func clearKey(_ context: ProjectContext) {
         KeychainService.delete(for: context)
+        errorMessage = nil
         refreshStatus()
     }
 
@@ -110,7 +134,7 @@ struct PersonasSettingsView: View {
                     if store.customPersonas.isEmpty {
                         Text("No custom personas")
                             .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(ForgeColors.textMuted)
                     } else {
                         ForEach(store.customPersonas) { persona in
                             PersonaRow(persona: persona, isBuiltIn: false)
@@ -127,12 +151,14 @@ struct PersonasSettingsView: View {
             }
 
             Divider()
+                .overlay(ForgeColors.border)
 
             HStack {
                 Spacer()
                 Button("Add Persona") {
                     sheetState = .addNew
                 }
+                .buttonStyle(ForgeButtonStyle(compact: true))
                 .padding(12)
             }
         }
@@ -177,13 +203,13 @@ private struct PersonaRow: View {
                         .font(.system(.caption2, design: .monospaced))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(.quaternary)
+                        .background(ForgeColors.surface)
                         .clipShape(Capsule())
                 }
             }
             Text(persona.systemPrompt)
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ForgeColors.textTertiary)
                 .lineLimit(2)
         }
         .padding(.vertical, 2)
@@ -210,8 +236,9 @@ private struct PersonaEditorSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(isNew ? "New Persona" : "Edit Persona")
-                .font(.system(.headline, design: .monospaced))
+            Text(isNew ? "NEW PERSONA" : "EDIT PERSONA")
+                .font(.system(.headline, design: .monospaced, weight: .bold))
+                .tracking(2)
                 .padding(.top, 16)
 
             Form {
@@ -227,7 +254,8 @@ private struct PersonaEditorSheet: View {
             .formStyle(.grouped)
 
             HStack {
-                Button("Cancel", role: .cancel) { dismiss() }
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
                     .keyboardShortcut(.cancelAction)
                 Spacer()
                 Button("Save") {
@@ -239,6 +267,7 @@ private struct PersonaEditorSheet: View {
                     onSave(persona)
                     dismiss()
                 }
+                .buttonStyle(ForgeButtonStyle(compact: true))
                 .keyboardShortcut(.defaultAction)
                 .disabled(name.isEmpty || systemPrompt.isEmpty)
             }
@@ -258,7 +287,7 @@ struct AIBackendSettingsView: View {
             Section {
                 Text("Choose the AI backend for processing inputs and generating plans.")
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ForgeColors.textTertiary)
             }
 
             Section("Backend") {
@@ -273,7 +302,7 @@ struct AIBackendSettingsView: View {
                                     .font(.system(.body, design: .monospaced, weight: .semibold))
                                 Text(backend.subtitle)
                                     .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(ForgeColors.textTertiary)
                             }
                             Spacer()
                             if selected == backend {
