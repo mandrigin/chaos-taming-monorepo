@@ -203,7 +203,10 @@ struct ProjectWorkspaceView: View {
                         }
 
                         if audioService.isRecording {
-                            AudioRecordingBar(duration: audioService.recordingDuration) {
+                            AudioRecordingBar(
+                                duration: audioService.recordingDuration,
+                                audioLevels: audioService.audioLevels
+                            ) {
                                 finishRecording()
                             }
                         }
@@ -344,6 +347,9 @@ struct ProjectWorkspaceView: View {
                     document.addInput(result.0)
                 }
             }
+        }
+        .onChange(of: document.projectData.inputs.count) {
+            Task { await InputProcessor.processInputs(document: document) }
         }
         .sheet(isPresented: $showPersonaPicker) {
             PersonaPickerSheet(document: document)

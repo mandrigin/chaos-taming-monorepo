@@ -8,6 +8,8 @@ final class AudioRecordingService {
     var isRecording = false
     var recordingDuration: TimeInterval = 0
     var lastError: String?
+    /// Rolling buffer of normalized audio levels (0.0–1.0) for waveform display.
+    var audioLevels: [CGFloat] = Array(repeating: 0, count: 12)
 
     private var recorder: AVAudioRecorder?
     private var timer: Timer?
@@ -37,13 +39,17 @@ final class AudioRecordingService {
 
         do {
             recorder = try AVAudioRecorder(url: url, settings: settings)
+            recorder?.isMeteringEnabled = true
             recorder?.record()
             isRecording = true
             recordingDuration = 0
+            audioLevels = Array(repeating: 0, count: 12)
             lastError = nil
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                 Task { @MainActor in
-                    self?.recordingDuration += 0.1
+                    guard let self else { return }
+                    self.recordingDuration += 0.1
+                    self.updateMetering()
                 }
             }
         } catch {
@@ -52,12 +58,24 @@ final class AudioRecordingService {
         }
     }
 
+    private func updateMetering() {
+        guard let recorder else { return }
+        recorder.updateMeters()
+        // averagePower returns dB in range roughly -160...0
+        let dB = recorder.averagePower(forChannel: 0)
+        // Normalize to 0.0–1.0 (treat -50 dB as silence, 0 dB as max)
+        let normalized = CGFloat(max(0, min(1, (dB + 50) / 50)))
+        audioLevels.removeFirst()
+        audioLevels.append(normalized)
+    }
+
     private func stopRecording() -> URL? {
         recorder?.stop()
         recorder = nil
         timer?.invalidate()
         timer = nil
         isRecording = false
+        audioLevels = Array(repeating: 0, count: 12)
         let url = tempURL
         tempURL = nil
         return url
@@ -67,6 +85,7 @@ final class AudioRecordingService {
 /// A recording indicator bar shown during audio capture.
 struct AudioRecordingBar: View {
     let duration: TimeInterval
+    let audioLevels: [CGFloat]
     let onStop: () -> Void
 
     @Environment(\.forgeTheme) private var theme
@@ -85,12 +104,13 @@ struct AudioRecordingBar: View {
                 .font(.system(.caption, design: .monospaced))
                 .monospacedDigit()
 
-            // Waveform visualization
+            // Waveform visualization driven by real audio levels
             HStack(spacing: 2) {
-                ForEach(0..<12, id: \.self) { i in
+                ForEach(0..<audioLevels.count, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 1)
                         .fill(theme.accent.opacity(0.7))
                         .frame(width: 3, height: barHeight(for: i))
+                        .animation(.easeOut(duration: 0.08), value: audioLevels[i])
                 }
             }
             .frame(height: 20)
@@ -124,8 +144,7 @@ struct AudioRecordingBar: View {
     }
 
     private func barHeight(for index: Int) -> CGFloat {
-        // Pseudo-animated bars based on duration
-        let phase = duration * 3.0 + Double(index) * 0.7
-        return CGFloat(4 + abs(sin(phase)) * 16)
+        let level = index < audioLevels.count ? audioLevels[index] : 0
+        return 4 + level * 16
     }
 }
