@@ -25,26 +25,13 @@ struct InputForgeDocument: FileDocument {
     }
 
     init(configuration: ReadConfiguration) throws {
-        guard let wrapper = configuration.file.fileWrappers,
-              let projectWrapper = wrapper["project.json"],
-              let data = projectWrapper.regularFileContents
-        else {
+        guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
         self.projectJSON = data
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let projectWrapper = FileWrapper(regularFileWithContents: projectJSON)
-        projectWrapper.preferredFilename = "project.json"
-
-        let assetsWrapper = FileWrapper(directoryWithFileWrappers: [:])
-        assetsWrapper.preferredFilename = "assets"
-
-        let packageWrapper = FileWrapper(directoryWithFileWrappers: [
-            "project.json": projectWrapper,
-            "assets": assetsWrapper
-        ])
-        return packageWrapper
+        FileWrapper(regularFileWithContents: projectJSON)
     }
 }

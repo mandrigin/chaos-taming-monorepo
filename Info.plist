@@ -13,8 +13,6 @@
 			<array>
 				<string>com.inputforge.project</string>
 			</array>
-			<key>LSTypeIsPackage</key>
-			<true/>
 		</dict>
 	</array>
 	<key>UTExportedTypeDeclarations</key>
@@ -22,7 +20,7 @@
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
-				<string>com.apple.package</string>
+				<string>public.json</string>
 			</array>
 			<key>UTTypeDescription</key>
 			<string>InputForge Project</string>
