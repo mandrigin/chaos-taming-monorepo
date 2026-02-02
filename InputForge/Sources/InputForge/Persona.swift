@@ -57,5 +57,15 @@ extension Persona {
             """,
             isBuiltIn: true
         ),
+        Persona(
+            name: "Swiss Specialist",
+            systemPrompt: """
+            Emphasize Swiss-specific knowledge: cantonal regulations, federal procedures, \
+            SBB and public transport, healthcare system (KVG/LAMal), Billag/Serafe obligations, \
+            residence permits (B/C/L), real estate and tenant law, school systems by canton, \
+            and local public services. Structure plans around Swiss administrative realities and deadlines.
+            """,
+            isBuiltIn: true
+        ),
     ]
 }
