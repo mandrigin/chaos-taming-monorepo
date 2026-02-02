@@ -64,6 +64,7 @@ enum InputTypeDetector {
 /// The main drop zone view that accepts files and shows drag feedback.
 struct InputDropZone: View {
     @Bindable var document: InputForgeDocument
+    var onAddText: () -> Void
     @Environment(\.forgeTheme) private var theme
     @State private var isDragTargeted = false
 
@@ -85,6 +86,18 @@ struct InputDropZone: View {
             Text("Or paste from clipboard with \u{2318}V")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(ForgeColors.textDim)
+
+            Button(action: onAddText) {
+                HStack(spacing: 4) {
+                    Image(systemName: "text.badge.plus")
+                        .font(.system(size: 10))
+                    Text("ADD TEXT")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                }
+            }
+            .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
+            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {

@@ -460,13 +460,75 @@ struct InputSidebarView: View {
 
 struct InputStageView: View {
     @Bindable var document: InputForgeDocument
+    @State private var isAddingText = false
 
     var body: some View {
-        if document.projectData.inputs.isEmpty {
-            InputDropZone(document: document)
-        } else {
-            InputTrayView(document: document)
+        Group {
+            if document.projectData.inputs.isEmpty {
+                InputDropZone(document: document, onAddText: { isAddingText = true })
+            } else {
+                InputTrayView(document: document, onAddText: { isAddingText = true })
+            }
         }
+        .sheet(isPresented: $isAddingText) {
+            TextInputSheet { text in
+                let item = InputItem(type: .text, textContent: text)
+                document.addInput(item)
+            }
+        }
+    }
+}
+
+// MARK: - Text Input Sheet
+
+struct TextInputSheet: View {
+    let onCommit: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.forgeTheme) private var theme
+    @State private var text = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("ADD TEXT INPUT")
+                    .font(.system(.headline, design: .monospaced, weight: .bold))
+                    .tracking(2)
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
+                    .keyboardShortcut(.escape, modifiers: [])
+            }
+            .padding()
+
+            Divider()
+                .overlay(ForgeColors.border)
+
+            TextEditor(text: $text)
+                .font(.system(.body, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .padding()
+                .background(ForgeColors.background)
+
+            Divider()
+                .overlay(ForgeColors.border)
+
+            HStack {
+                Spacer()
+                Button {
+                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    onCommit(trimmed)
+                    dismiss()
+                } label: {
+                    Label("ADD", systemImage: "text.badge.plus")
+                }
+                .buttonStyle(ForgeButtonStyle(compact: true))
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding()
+        }
+        .frame(width: 520, height: 380)
     }
 }
 

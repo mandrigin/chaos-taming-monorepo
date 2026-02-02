@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 /// Supports drag-to-reorder and has a compact drop zone for adding more files.
 struct InputTrayView: View {
     @Bindable var document: InputForgeDocument
+    var onAddText: () -> Void
     @Environment(\.forgeTheme) private var theme
     @State private var selectedInputId: UUID?
     @State private var isDragTargeted = false
@@ -61,19 +62,32 @@ struct InputTrayView: View {
     }
 
     private var compactDropZone: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "plus.circle.dashed")
-                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.textTertiary)
-            Text("Drop more files here")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.textTertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 44)
-        .background {
-            RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [6, 3]))
-                .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.border)
+        HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.dashed")
+                    .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.textTertiary)
+                Text("Drop more files here")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.textTertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background {
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [6, 3]))
+                    .foregroundStyle(isDragTargeted ? theme.accent : ForgeColors.border)
+            }
+
+            Button(action: onAddText) {
+                HStack(spacing: 4) {
+                    Image(systemName: "text.badge.plus")
+                        .font(.system(size: 10))
+                    Text("ADD TEXT")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                }
+            }
+            .buttonStyle(ForgeButtonStyle(variant: .secondary, compact: true))
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
