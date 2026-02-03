@@ -4,8 +4,10 @@ import Foundation
 ///
 /// Invokes the locally installed Claude Code CLI (`claude --print`).
 /// No API key required; relies on the user's existing Claude Code authentication.
+/// Supports multi-modal input via temp files for image data.
 final class ClaudeCodeAIService: AIService, @unchecked Sendable {
     private let model: String
+    private let fileManager = FileManager.default
 
     init(model: String = "claude-sonnet-4-20250514") {
         self.model = model
@@ -27,17 +29,34 @@ final class ClaudeCodeAIService: AIService, @unchecked Sendable {
 
     // MARK: - Private
 
+    /// Result of formatting messages, including any temp directory with images.
+    private struct FormattedPrompt {
+        let text: String
+        let imageTempDir: URL?
+    }
+
     private func invokeClaudeCode(messages: [AIMessage]) async throws -> String {
         guard let binaryPath = AIBackend.claudeCodePath else {
             throw AIServiceError.modelUnavailable
         }
 
-        let prompt = formatPrompt(from: messages)
+        let formatted = try formatPrompt(from: messages)
+
+        defer {
+            // Clean up temp directory after request completes
+            if let tempDir = formatted.imageTempDir {
+                try? fileManager.removeItem(at: tempDir)
+            }
+        }
 
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let result = try self.runProcess(binaryPath: binaryPath, prompt: prompt)
+                    let result = try self.runProcess(
+                        binaryPath: binaryPath,
+                        prompt: formatted.text,
+                        imageTempDir: formatted.imageTempDir
+                    )
                     continuation.resume(returning: result)
                 } catch {
                     continuation.resume(throwing: error)
@@ -46,8 +65,10 @@ final class ClaudeCodeAIService: AIService, @unchecked Sendable {
         }
     }
 
-    private func formatPrompt(from messages: [AIMessage]) -> String {
-        var parts: [String] = []
+    private func formatPrompt(from messages: [AIMessage]) throws -> FormattedPrompt {
+        var promptParts: [String] = []
+        var imagePaths: [String] = []
+        var tempDir: URL?
 
         for message in messages {
             let rolePrefix: String
@@ -60,25 +81,81 @@ final class ClaudeCodeAIService: AIService, @unchecked Sendable {
                 rolePrefix = "[Assistant]\n"
             }
 
-            let textContent = message.parts.compactMap { part -> String? in
-                if case .text(let text) = part {
-                    return text
-                }
-                return nil
-            }.joined(separator: "\n")
+            var contentParts: [String] = []
 
-            if !textContent.isEmpty {
-                parts.append(rolePrefix + textContent)
+            for part in message.parts {
+                switch part {
+                case .text(let text):
+                    contentParts.append(text)
+                case .imageData(let data, let mimeType):
+                    // Create temp directory on first image
+                    if tempDir == nil {
+                        let baseTempDir = fileManager.temporaryDirectory
+                        let sessionDir = baseTempDir.appendingPathComponent("claude-code-images-\(UUID().uuidString)")
+                        try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+                        tempDir = sessionDir
+                    }
+
+                    let ext = fileExtension(for: mimeType)
+                    let filename = "image-\(imagePaths.count + 1)\(ext)"
+                    let imagePath = tempDir!.appendingPathComponent(filename)
+
+                    try data.write(to: imagePath)
+                    imagePaths.append(imagePath.path)
+                    contentParts.append("See attached image: \(imagePath.path)")
+                }
+            }
+
+            if !contentParts.isEmpty {
+                promptParts.append(rolePrefix + contentParts.joined(separator: "\n"))
             }
         }
 
-        return parts.joined(separator: "\n\n")
+        return FormattedPrompt(
+            text: promptParts.joined(separator: "\n\n"),
+            imageTempDir: tempDir
+        )
     }
 
-    private func runProcess(binaryPath: String, prompt: String) throws -> String {
+    /// Map MIME type to file extension.
+    private func fileExtension(for mimeType: String) -> String {
+        switch mimeType.lowercased() {
+        case "image/png":
+            return ".png"
+        case "image/jpeg", "image/jpg":
+            return ".jpg"
+        case "image/gif":
+            return ".gif"
+        case "image/webp":
+            return ".webp"
+        case "image/heic":
+            return ".heic"
+        case "image/heif":
+            return ".heif"
+        case "image/tiff":
+            return ".tiff"
+        case "image/bmp":
+            return ".bmp"
+        default:
+            // Default to png for unknown image types
+            return ".png"
+        }
+    }
+
+    private func runProcess(binaryPath: String, prompt: String, imageTempDir: URL?) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: binaryPath)
-        process.arguments = ["--print", prompt]
+
+        var arguments = ["--print"]
+
+        // Add --add-dir flag if images are present to give Claude access to the temp directory
+        if let tempDir = imageTempDir {
+            arguments.append("--add-dir")
+            arguments.append(tempDir.path)
+        }
+
+        arguments.append(prompt)
+        process.arguments = arguments
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
