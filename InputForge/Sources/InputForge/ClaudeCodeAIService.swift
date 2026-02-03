@@ -42,6 +42,11 @@ final class ClaudeCodeAIService: AIService, @unchecked Sendable {
 
         let formatted = try formatPrompt(from: messages)
 
+        // Claude Code CLI requires a non-empty prompt
+        guard !formatted.text.isEmpty else {
+            throw AIServiceError.invalidResponse(detail: "Cannot invoke Claude Code with empty prompt - no messages with content provided")
+        }
+
         defer {
             // Clean up temp directory after request completes
             if let tempDir = formatted.imageTempDir {
