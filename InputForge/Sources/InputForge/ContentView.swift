@@ -159,6 +159,7 @@ struct ProjectWorkspaceView: View {
     @State private var showPersonaPicker = false
     @State private var showExportSheet = false
     @State private var glitchTrigger = false
+    @State private var showInputStage = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -189,14 +190,19 @@ struct ProjectWorkspaceView: View {
                                 ZStack {
                                     if showingExport, document.projectData.currentAnalysis != nil {
                                         TaskPaperPreviewView(document: document)
+                                    } else if showInputStage || document.projectData.currentAnalysis == nil {
+                                        InputStageView(document: document, audioService: audioService)
                                     } else if let analysis = document.projectData.currentAnalysis {
                                         AnalysisResultView(
                                             analysis: analysis,
                                             personaName: document.projectData.persona.name,
-                                            onReanalyze: { coordinator.runAnalysis(document: document) }
+                                            onReanalyze: { coordinator.runAnalysis(document: document) },
+                                            onEditInputs: {
+                                                withAnimation(.easeInOut(duration: 0.25)) {
+                                                    showInputStage = true
+                                                }
+                                            }
                                         )
-                                    } else {
-                                        InputStageView(document: document, audioService: audioService)
                                     }
                                 }
                                 .forgeGlitch(glitchTrigger)
@@ -223,8 +229,38 @@ struct ProjectWorkspaceView: View {
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     HStack(spacing: 8) {
+                        // View Analysis button (when editing inputs)
+                        if showInputStage, document.projectData.currentAnalysis != nil {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    showInputStage = false
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "doc.text.magnifyingglass")
+                                        .font(.system(size: 9))
+                                    Text("VIEW ANALYSIS")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .tracking(1)
+                                }
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(ForgeColors.surface)
+                                }
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .strokeBorder(ForgeColors.border, lineWidth: 1)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         // Analyze button
                         Button {
+                            showInputStage = false
                             coordinator.runAnalysis(document: document)
                             glitchTrigger.toggle()
                         } label: {
@@ -318,6 +354,7 @@ struct ProjectWorkspaceView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .runAnalysis)) { _ in
+            showInputStage = false
             coordinator.runAnalysis(document: document)
             glitchTrigger.toggle()
         }

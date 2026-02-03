@@ -8,6 +8,7 @@ struct AnalysisResultView: View {
     let analysis: AnalysisResult
     let personaName: String
     let onReanalyze: () -> Void
+    let onEditInputs: () -> Void
 
     @Environment(\.forgeTheme) private var theme
 
@@ -75,6 +76,28 @@ struct AnalysisResultView: View {
             }
 
             Spacer()
+
+            Button(action: onEditInputs) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("EDIT INPUTS")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(ForgeColors.surface)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 2)
+                        .strokeBorder(ForgeColors.border, lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
 
             Button(action: onReanalyze) {
                 HStack(spacing: 6) {
