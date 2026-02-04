@@ -151,7 +151,7 @@ final class ClaudeCodeAIService: AIService, @unchecked Sendable {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: binaryPath)
 
-        var arguments = ["--print"]
+        var arguments = ["--print", "--model", model]
 
         // Add --add-dir flag if images are present to give Claude access to the temp directory
         if let tempDir = imageTempDir {
@@ -159,15 +159,23 @@ final class ClaudeCodeAIService: AIService, @unchecked Sendable {
             arguments.append(tempDir.path)
         }
 
-        arguments.append(prompt)
         process.arguments = arguments
 
+        let stdinPipe = Pipe()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
+        process.standardInput = stdinPipe
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
         try process.run()
+
+        // Write prompt to stdin then close to signal EOF
+        if let data = prompt.data(using: .utf8) {
+            stdinPipe.fileHandleForWriting.write(data)
+        }
+        stdinPipe.fileHandleForWriting.closeFile()
+
         process.waitUntilExit()
 
         let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
