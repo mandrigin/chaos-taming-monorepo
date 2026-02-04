@@ -18,10 +18,11 @@ struct PromptBuilder: Sendable {
         persona: Persona,
         inputs: [InputItem],
         projectName: String,
-        version: Int
+        version: Int,
+        goalText: String = ""
     ) -> [AIMessage] {
         let systemPrompt = buildSystemPrompt(persona: persona)
-        let userContent = buildAnalysisUserContent(inputs: inputs, projectName: projectName, version: version)
+        let userContent = buildAnalysisUserContent(inputs: inputs, projectName: projectName, version: version, goalText: goalText)
 
         return [
             .system(systemPrompt),
@@ -43,6 +44,7 @@ struct PromptBuilder: Sendable {
         persona: Persona,
         inputs: [InputItem],
         currentAnalysis: AnalysisResult?,
+        goalText: String = "",
         imageDataProvider: ((InputItem) -> (Data, String)?)? = nil
     ) -> [AIMessage] {
         var messages: [AIMessage] = []
@@ -50,7 +52,8 @@ struct PromptBuilder: Sendable {
         let systemPrompt = buildChatSystemPrompt(
             persona: persona,
             inputs: inputs,
-            currentAnalysis: currentAnalysis
+            currentAnalysis: currentAnalysis,
+            goalText: goalText
         )
         messages.append(.system(systemPrompt))
 
@@ -83,6 +86,7 @@ struct PromptBuilder: Sendable {
         newUserMessage: String,
         inputs: [InputItem],
         currentAnalysis: AnalysisResult?,
+        goalText: String = "",
         imageDataProvider: ((InputItem) -> (Data, String)?)? = nil
     ) -> [AIMessage] {
         var messages: [AIMessage] = []
@@ -90,7 +94,8 @@ struct PromptBuilder: Sendable {
         let systemPrompt = buildChatSystemPrompt(
             persona: persona,
             inputs: inputs,
-            currentAnalysis: currentAnalysis
+            currentAnalysis: currentAnalysis,
+            goalText: goalText
         )
         messages.append(.system(systemPrompt))
 
@@ -121,20 +126,37 @@ struct PromptBuilder: Sendable {
         inputs: [InputItem],
         imageDataProvider: (InputItem) -> (Data, String)?,
         projectName: String,
-        version: Int
+        version: Int,
+        goalText: String = ""
     ) -> [AIContentPart] {
         var parts: [AIContentPart] = []
 
+        let trimmedGoal = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
         let textDescription = buildInputDescriptions(inputs: inputs)
-        parts.append(.text("""
+        var prompt = """
         Project: \(projectName)
         Analysis Version: \(version)
+        """
 
-        Inputs:
-        \(textDescription)
+        if !trimmedGoal.isEmpty {
+            prompt += """
 
-        Analyze all inputs and produce a structured project plan as JSON.
-        """))
+            ## Project Goal
+            \(trimmedGoal)
+            """
+        }
+
+        if !inputs.isEmpty {
+            prompt += """
+
+            ## Supporting Materials
+            \(textDescription)
+            """
+        }
+
+        prompt += "\n\nAnalyze the project goal and supporting materials, then produce a structured project plan as JSON."
+
+        parts.append(.text(prompt))
 
         // Add image data for image-type inputs
         for input in inputs where input.type == .image || input.type == .screenshot {
@@ -215,7 +237,8 @@ struct PromptBuilder: Sendable {
     private static func buildChatSystemPrompt(
         persona: Persona,
         inputs: [InputItem],
-        currentAnalysis: AnalysisResult?
+        currentAnalysis: AnalysisResult?,
+        goalText: String = ""
     ) -> String {
         var personaBlock = basePrompt
         if !persona.isNeutral {
@@ -240,8 +263,13 @@ struct PromptBuilder: Sendable {
         - If all major uncertainties are resolved, tell the user they can click Done Refining
         """
 
+        let trimmedGoal = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedGoal.isEmpty {
+            prompt += "\n\nProject goal:\n\(trimmedGoal)"
+        }
+
         if !inputs.isEmpty {
-            prompt += "\n\nProject inputs:\n\(buildInputDescriptions(inputs: inputs))"
+            prompt += "\n\nSupporting materials:\n\(buildInputDescriptions(inputs: inputs))"
         }
 
         if let analysis = currentAnalysis {
@@ -260,18 +288,35 @@ struct PromptBuilder: Sendable {
     private static func buildAnalysisUserContent(
         inputs: [InputItem],
         projectName: String,
-        version: Int
+        version: Int,
+        goalText: String = ""
     ) -> String {
+        let trimmedGoal = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
         let descriptions = buildInputDescriptions(inputs: inputs)
-        return """
+
+        var content = """
         Project: \(projectName)
         Analysis Version: \(version)
-
-        Inputs:
-        \(descriptions)
-
-        Analyze all inputs and produce a structured project plan as JSON.
         """
+
+        if !trimmedGoal.isEmpty {
+            content += """
+
+            ## Project Goal
+            \(trimmedGoal)
+            """
+        }
+
+        if !inputs.isEmpty {
+            content += """
+
+            ## Supporting Materials
+            \(descriptions)
+            """
+        }
+
+        content += "\n\nAnalyze the project goal and supporting materials, then produce a structured project plan as JSON."
+        return content
     }
 
     private static func buildInputDescriptions(inputs: [InputItem]) -> String {

@@ -8,6 +8,7 @@ struct ProjectData: Codable {
     var createdAt: Date
     var modifiedAt: Date
     var persona: Persona
+    var goalText: String
     var inputs: [InputItem]
     var currentAnalysis: AnalysisResult?
     var interrogation: InterrogationState?
@@ -19,6 +20,7 @@ struct ProjectData: Codable {
         createdAt: Date = .now,
         modifiedAt: Date = .now,
         persona: Persona = .neutral,
+        goalText: String = "",
         inputs: [InputItem] = [],
         currentAnalysis: AnalysisResult? = nil,
         interrogation: InterrogationState? = nil
@@ -29,6 +31,7 @@ struct ProjectData: Codable {
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
         self.persona = persona
+        self.goalText = goalText
         self.inputs = inputs
         self.currentAnalysis = currentAnalysis
         self.interrogation = interrogation

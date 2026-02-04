@@ -284,7 +284,7 @@ struct ProjectWorkspaceView: View {
                             }
                         }
                         .buttonStyle(.plain)
-                        .disabled(coordinator.state.isAnalyzing || document.projectData.inputs.isEmpty)
+                        .disabled(coordinator.state.isAnalyzing || (document.projectData.inputs.isEmpty && document.projectData.goalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
 
                         ForgeBadge(text: document.projectData.context.displayName.uppercased())
 
@@ -453,6 +453,28 @@ struct InputSidebarView: View {
     var body: some View {
         List {
             Section {
+                HStack {
+                    Label("Goal", systemImage: "text.alignleft")
+                        .font(.system(.body, design: .monospaced))
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    if !document.projectData.goalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(.caption))
+                            .foregroundStyle(theme.accent)
+                    } else {
+                        Text("EMPTY")
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(ForgeColors.textDim)
+                    }
+                }
+            } header: {
+                ForgeSectionHeader(title: "MAIN")
+            }
+
+            Section {
                 ForEach(document.projectData.inputs) { input in
                     HStack {
                         Label(
@@ -485,7 +507,7 @@ struct InputSidebarView: View {
                     document.projectData.modifiedAt = .now
                 }
             } header: {
-                ForgeSectionHeader(title: "INPUTS (\(document.projectData.inputs.count))")
+                ForgeSectionHeader(title: "MATERIALS (\(document.projectData.inputs.count))")
             }
         }
         .listStyle(.sidebar)
@@ -605,15 +627,67 @@ struct ProviderModelPickerMenu: View {
 struct InputStageView: View {
     @Bindable var document: InputForgeDocument
     var audioService: AudioRecordingService
+    @Environment(\.forgeTheme) private var theme
     @State private var isAddingText = false
 
     var body: some View {
-        Group {
-            if document.projectData.inputs.isEmpty {
-                InputDropZone(document: document, onAddText: { isAddingText = true }, audioService: audioService)
-            } else {
-                InputTrayView(document: document, onAddText: { isAddingText = true }, audioService: audioService)
+        VStack(spacing: 0) {
+            // MAIN — Goal / brief text editor
+            VStack(alignment: .leading, spacing: 0) {
+                ForgeSectionHeader(title: "MAIN")
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 6)
+
+                TextEditor(text: $document.projectData.goalText)
+                    .font(.system(.body, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(minHeight: 120, maxHeight: 200)
+                    .background(ForgeColors.surface)
+                    .overlay {
+                        // Placeholder
+                        if document.projectData.goalText.isEmpty {
+                            Text("Describe your project goal here\u{2026}")
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundStyle(ForgeColors.textDim)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 2)
+                            .strokeBorder(ForgeColors.border, lineWidth: 1)
+                    }
+                    .padding(.horizontal, 16)
+                    .onChange(of: document.projectData.goalText) {
+                        document.projectData.modifiedAt = .now
+                    }
             }
+
+            Divider()
+                .overlay(ForgeColors.border)
+                .padding(.vertical, 8)
+
+            // SUPPORTING MATERIALS — files, images, audio, etc.
+            VStack(alignment: .leading, spacing: 0) {
+                ForgeSectionHeader(title: "SUPPORTING MATERIALS (\(document.projectData.inputs.count))")
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+
+                Group {
+                    if document.projectData.inputs.isEmpty {
+                        InputDropZone(document: document, onAddText: { isAddingText = true }, audioService: audioService)
+                    } else {
+                        InputTrayView(document: document, onAddText: { isAddingText = true }, audioService: audioService)
+                    }
+                }
+            }
+            .frame(maxHeight: .infinity)
         }
         .sheet(isPresented: $isAddingText) {
             TextInputSheet { text in

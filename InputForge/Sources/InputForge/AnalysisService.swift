@@ -10,6 +10,7 @@ protocol AnalysisService: Sendable {
         inputs: [InputItem],
         persona: Persona,
         projectName: String,
+        goalText: String,
         onProgress: @Sendable (Double) -> Void
     ) async throws -> AnalysisResult
 }
@@ -100,9 +101,11 @@ struct LiveAnalysisService: AnalysisService {
         inputs: [InputItem],
         persona: Persona,
         projectName: String,
+        goalText: String,
         onProgress: @Sendable (Double) -> Void
     ) async throws -> AnalysisResult {
-        guard !inputs.isEmpty else { throw AnalysisError.noInputs }
+        let trimmedGoal = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !inputs.isEmpty || !trimmedGoal.isEmpty else { throw AnalysisError.noInputs }
 
         onProgress(0.1)
 
@@ -110,7 +113,8 @@ struct LiveAnalysisService: AnalysisService {
             persona: persona,
             inputs: inputs,
             projectName: projectName,
-            version: 0 // Caller stamps the real version number
+            version: 0, // Caller stamps the real version number
+            goalText: goalText
         )
 
         onProgress(0.2)
@@ -135,9 +139,11 @@ struct MockAnalysisService: AnalysisService {
         inputs: [InputItem],
         persona: Persona,
         projectName: String,
+        goalText: String,
         onProgress: @Sendable (Double) -> Void
     ) async throws -> AnalysisResult {
-        guard !inputs.isEmpty else { throw AnalysisError.noInputs }
+        let trimmedGoal = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !inputs.isEmpty || !trimmedGoal.isEmpty else { throw AnalysisError.noInputs }
 
         // Simulate processing time with progress updates
         let steps = 8

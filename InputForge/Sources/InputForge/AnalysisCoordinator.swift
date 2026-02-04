@@ -47,6 +47,7 @@ final class AnalysisCoordinator {
         let inputs = document.projectData.inputs
         let persona = document.projectData.persona
         let projectName = document.projectData.name
+        let goalText = document.projectData.goalText
         let nextVersion = (document.versions.map(\.versionNumber).max() ?? 0) + 1
         let service = overrideService ?? Self.resolveService(for: document.projectData.context)
 
@@ -58,6 +59,7 @@ final class AnalysisCoordinator {
                     inputs: inputs,
                     persona: persona,
                     projectName: projectName,
+                    goalText: goalText,
                     onProgress: { [weak self] progress in
                         Task { @MainActor in
                             guard let self, self.state.isAnalyzing else { return }

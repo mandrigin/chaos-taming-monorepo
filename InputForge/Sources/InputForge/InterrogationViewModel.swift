@@ -76,6 +76,7 @@ final class InterrogationViewModel {
                 persona: document.projectData.persona,
                 inputs: document.projectData.inputs,
                 currentAnalysis: document.projectData.currentAnalysis,
+                goalText: document.projectData.goalText,
                 imageDataProvider: imageDataProvider
             )
 
@@ -114,7 +115,8 @@ final class InterrogationViewModel {
                 history: messages.dropLast().map { $0 }, // history before the new user msg
                 newUserMessage: text,
                 inputs: document.projectData.inputs,
-                currentAnalysis: document.projectData.currentAnalysis
+                currentAnalysis: document.projectData.currentAnalysis,
+                goalText: document.projectData.goalText
             )
 
             let response = try await aiService.chat(messages: aiMessages)
@@ -153,7 +155,8 @@ final class InterrogationViewModel {
                 persona: document.projectData.persona,
                 inputs: document.projectData.inputs,
                 projectName: document.projectData.name,
-                version: nextVersion
+                version: nextVersion,
+                goalText: document.projectData.goalText
             )
 
             // Append interrogation context to the analysis
