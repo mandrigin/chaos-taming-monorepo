@@ -34,6 +34,8 @@ private struct InterrogationContent: View {
     let theme: ForgeTheme
     let onDismiss: () -> Void
 
+    @State private var showErrorDetail = false
+
     var body: some View {
         HSplitView {
             // Chat panel (primary)
@@ -330,11 +332,38 @@ private struct InterrogationContent: View {
 
     private var doneRefiningBar: some View {
         VStack(spacing: 8) {
-            if let error = viewModel.error {
-                Text(error)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.red.opacity(0.8))
-                    .lineLimit(2)
+            if viewModel.error != nil {
+                Button {
+                    showErrorDetail = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(ForgeColors.error)
+
+                        Text("ERROR — TAP FOR DETAILS")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .tracking(1)
+                            .foregroundStyle(ForgeColors.error)
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(ForgeColors.error.opacity(0.6))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(ForgeColors.errorDim.opacity(0.5))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 2)
+                            .strokeBorder(ForgeColors.error.opacity(0.4), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
             }
 
             Button {
@@ -371,6 +400,11 @@ private struct InterrogationContent: View {
         }
         .padding(12)
         .background(Color(red: 0.08, green: 0.08, blue: 0.09))
+        .sheet(isPresented: $showErrorDetail) {
+            if let error = viewModel.error {
+                ErrorDetailSheet(errorMessage: error)
+            }
+        }
     }
 }
 
@@ -478,5 +512,98 @@ private struct MessageBubble: View {
                     .foregroundStyle(theme.accent.opacity(0.5))
             }
         }
+    }
+}
+
+// MARK: - Error Detail Sheet
+
+private struct ErrorDetailSheet: View {
+    let errorMessage: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var copied = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(ForgeColors.error)
+
+                Text("ERROR DETAILS")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .tracking(3)
+                    .foregroundStyle(ForgeColors.error)
+
+                Spacer()
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(ForgeColors.textSecondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .background(Color(red: 0.08, green: 0.08, blue: 0.09))
+
+            Divider().background(ForgeColors.error.opacity(0.3))
+
+            // Error content
+            ScrollView {
+                Text(errorMessage)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(ForgeColors.textPrimary)
+                    .lineSpacing(4)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(20)
+            }
+
+            Divider().background(ForgeColors.border)
+
+            // Copy button
+            HStack {
+                Spacer()
+
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(errorMessage, forType: .string)
+                    copied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        copied = false
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                            .font(.system(size: 11))
+
+                        Text(copied ? "COPIED" : "COPY ERROR")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .tracking(1)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(ForgeColors.errorDim.opacity(0.5))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 2)
+                            .strokeBorder(ForgeColors.error.opacity(0.4), lineWidth: 1)
+                    }
+                    .foregroundStyle(ForgeColors.error)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color(red: 0.08, green: 0.08, blue: 0.09))
+        }
+        .background(ForgeColors.background)
+        .frame(minWidth: 400, idealWidth: 500, minHeight: 250, idealHeight: 350)
     }
 }
